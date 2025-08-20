@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "name": "goat-edtech",
+  "functions": {
+    "api/index.js": {
+      "runtime": "@vercel/node"
+    },
+    "api/monitor.js": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/index"
+    }
+  ]
+}
