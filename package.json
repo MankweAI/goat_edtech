@@ -1,0 +1,17 @@
+{
+  "name": "goat-edtech",
+  "version": "1.0.0",
+  "description": "GOAT Bot 2.0 - SA Student Companion",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "sophoniagoat"
+}
