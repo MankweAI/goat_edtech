@@ -1,15 +1,15 @@
 /**
- * ManyChat Webhook - GOAT Bot Main Menu
+ * GOAT Bot ManyChat Webhook - Serverless Function
  * GOAT Bot 2.0 - SA Student Companion
  * User: sophoniagoat
- * Updated: 2025-08-20 19:46:28 UTC
+ * Fixed: 2025-08-20 19:55:38 UTC
  */
 
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
   try {
-    console.log("ManyChat webhook received:", {
+    console.log("GOAT Bot webhook received:", {
       method: req.method,
       body: req.body,
       timestamp: new Date().toISOString(),
@@ -17,7 +17,22 @@ module.exports = async (req, res) => {
 
     const { psid, message } = req.body;
 
-    // Basic validation
+    // Handle GET requests (for ManyChat setup verification)
+    if (req.method === "GET") {
+      return res.status(200).json({
+        message: "GOAT Bot webhook is ready!",
+        status: "active",
+        timestamp: new Date().toISOString(),
+        user: "sophoniagoat",
+        setup: "Ready for ManyChat integration",
+        testWith: {
+          method: "POST",
+          body: { psid: "test123", message: "start" },
+        },
+      });
+    }
+
+    // Basic validation for POST requests
     if (!psid) {
       return res.status(400).json({
         message: "User ID is required",
@@ -133,10 +148,10 @@ module.exports = async (req, res) => {
     }
 
     // Log successful interaction
-    console.log("Successful response sent:", response);
-    res.json(response);
+    console.log("GOAT Bot response sent:", response);
+    res.status(200).json(response);
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("GOAT Bot webhook error:", error);
     res.status(500).json({
       message: "Sorry, I encountered an error. Please try again! 🔄",
       status: "error",
