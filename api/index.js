@@ -1216,35 +1216,313 @@ async function analyzeConfirmationResponse(userResponse) {
 async function generateConfirmedTargetedQuestion(user) {
   const profile = user.context.painpoint_profile;
 
-  console.log(`🎯 GENERATING CONFIRMED TARGETED QUESTION:`, profile);
+  console.log(`🎯 GENERATING REAL TARGETED QUESTION:`, profile);
 
-  user.context.current_question = {
-    questionText: `Grade ${profile.grade} ${profile.subject} practice question targeting: ${profile.specific_failure}`,
-    solution: "Step-by-step solution addressing your confirmed painpoint",
-    targeted: true,
-    painpoint_confirmed: true,
-    dynamic_probing_used: true,
-  };
+  try {
+    // ===== REAL AI QUESTION GENERATION =====
+    const realQuestion = await generateRealAIQuestion(profile);
 
-  const content = `🎯 **TARGETED PRACTICE QUESTION**
+    user.context.current_question = {
+      questionText: realQuestion.questionText,
+      solution: realQuestion.solution,
+      explanation: realQuestion.explanation,
+      targeted: true,
+      painpoint_confirmed: true,
+      dynamic_probing_used: true,
+      ai_generated: true,
+    };
+
+    const content = `🎯 **TARGETED PRACTICE QUESTION**
 
 **Designed for your confirmed challenge:** *${profile.specific_failure}*
 
 📝 **Question:**
-Grade ${profile.grade} ${profile.subject} practice question specifically targeting your struggle with ${profile.topic_struggles}
+${realQuestion.questionText}
 
 **This question addresses exactly what you confirmed as your challenge.**`;
 
-  const menu = generateEnhancedVisualMenu(
-    AI_INTEL_STATES.AI_QUESTION_GENERATION,
-    user.preferences.device_type
-  );
-  return formatResponseWithEnhancedSeparation(
-    content,
-    menu,
-    user.preferences.device_type
-  );
+    const menu = generateEnhancedVisualMenu(
+      AI_INTEL_STATES.AI_QUESTION_GENERATION,
+      user.preferences.device_type
+    );
+    return formatResponseWithEnhancedSeparation(
+      content,
+      menu,
+      user.preferences.device_type
+    );
+  } catch (error) {
+    console.error("Real question generation failed:", error);
+
+    // Enhanced fallback with subject-specific questions
+    const fallbackQuestion = generateFallbackQuestion(profile);
+
+    user.context.current_question = {
+      questionText: fallbackQuestion.questionText,
+      solution: fallbackQuestion.solution,
+      targeted: true,
+      painpoint_confirmed: true,
+      fallback_used: true,
+    };
+
+    const content = `🎯 **TARGETED PRACTICE QUESTION**
+
+**Designed for your confirmed challenge:** *${profile.specific_failure}*
+
+📝 **Question:**
+${fallbackQuestion.questionText}
+
+**This question addresses exactly what you confirmed as your challenge.**`;
+
+    const menu = generateEnhancedVisualMenu(
+      AI_INTEL_STATES.AI_QUESTION_GENERATION,
+      user.preferences.device_type
+    );
+    return formatResponseWithEnhancedSeparation(
+      content,
+      menu,
+      user.preferences.device_type
+    );
+  }
 }
+
+async function generateRealAIQuestion(profile) {
+  console.log(`🤖 Generating real AI question for:`, profile);
+
+  try {
+    const OpenAI = require("openai");
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Construct detailed prompt for question generation
+    const questionPrompt = `Generate a Grade ${profile.grade} ${profile.subject} practice question that specifically targets a student who struggles with: "${profile.specific_failure}"
+
+Topic: ${profile.topic_struggles}
+Student's Challenge: ${profile.specific_failure}
+Assessment Type: ${profile.assessment_type}
+
+Requirements:
+1. Create ONE specific practice question that directly addresses their struggle
+2. Make it appropriate for Grade ${profile.grade} level
+3. Focus specifically on "${profile.specific_failure}"
+4. Include clear instructions
+5. Make it solvable but challenging
+
+Return ONLY the question text, no solution. Keep it concise and focused.
+
+Example format: "Solve for x: 3x + 8 = 23. Show all your working steps."`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "user",
+          content: questionPrompt,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.4,
+    });
+
+    const questionText = response.choices[0].message.content.trim();
+
+    // Generate corresponding solution
+    const solutionPrompt = `Provide a step-by-step solution for this question, specifically helping a student who "${profile.specific_failure}":
+
+Question: ${questionText}
+
+Student's struggle: ${profile.specific_failure}
+
+Provide a clear, educational step-by-step solution that addresses their specific challenge. Use bold formatting for steps.`;
+
+    const solutionResponse = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "user",
+          content: solutionPrompt,
+        },
+      ],
+      max_tokens: 400,
+      temperature: 0.3,
+    });
+
+    const solution = enhanceVisualFormatting(
+      solutionResponse.choices[0].message.content
+    );
+
+    console.log(
+      `✅ Real AI question generated: ${questionText.substring(0, 50)}...`
+    );
+
+    return {
+      questionText: enhanceVisualFormatting(questionText),
+      solution: solution,
+      explanation: `This question specifically targets students who ${profile.specific_failure}`,
+      tokens_used:
+        (response.usage?.total_tokens || 0) +
+        (solutionResponse.usage?.total_tokens || 0),
+    };
+  } catch (error) {
+    console.error("OpenAI question generation failed:", error);
+    throw error; // Let the calling function handle fallback
+  }
+}
+
+// ===== ENHANCED FALLBACK QUESTION GENERATOR =====
+
+function generateFallbackQuestion(profile) {
+  const subject = profile.subject || 'Mathematics';
+  const grade = profile.grade || '11';
+  const topic = profile.topic_struggles || 'algebra';
+  const struggle = profile.specific_failure || 'solving equations';
+  
+  console.log(`🔄 Generating fallback question for: ${subject} ${topic} - ${struggle}`);
+  
+  // Subject and topic specific fallback questions
+  if (subject === 'Mathematics') {
+    if (topic.toLowerCase().includes('algebra')) {
+      if (struggle.toLowerCase().includes('solve for x') || struggle.toLowerCase().includes('cannot solve')) {
+        return {
+          questionText: `**Solve for x:**
+
+2x + 7 = 19
+
+**Show all your working steps.**`,
+          solution: `**Step 1:** Subtract 7 from both sides
+2x + 7 - 7 = 19 - 7
+2x = 12
+
+**Step 2:** Divide both sides by 2
+2x ÷ 2 = 12 ÷ 2
+x = 6
+
+**Therefore:** x = 6`
+        };
+      }
+      
+      if (struggle.toLowerCase().includes('factor')) {
+        return {
+          questionText: `**Factor completely:**
+
+x² + 5x + 6
+
+**Show all your working steps.**`,
+          solution: `**Step 1:** Look for two numbers that multiply to 6 and add to 5
+Numbers: 2 and 3 (2 × 3 = 6, 2 + 3 = 5)
+
+**Step 2:** Write as factors
+x² + 5x + 6 = (x + 2)(x + 3)
+
+**Therefore:** (x + 2)(x + 3)`
+        };
+      }
+    }
+    
+    if (topic.toLowerCase().includes('geometry')) {
+      return {
+        questionText: `**Find the area of a triangle:**
+
+Base = 8 cm
+Height = 6 cm
+
+**Show your formula and calculation.**`,
+        solution: `**Formula:** Area = ½ × base × height
+
+**Step 1:** Substitute values
+Area = ½ × 8 × 6
+
+**Step 2:** Calculate
+Area = ½ × 48 = 24
+
+**Therefore:** Area = 24 cm²`
+      };
+    }
+    
+    if (topic.toLowerCase().includes('trigonometry')) {
+      return {
+        questionText: `**Find sin θ:**
+
+In a right triangle:
+Opposite side = 3
+Hypotenuse = 5
+
+**Show your working.**`,
+        solution: `**Formula:** sin θ = opposite/hypotenuse
+
+**Step 1:** Substitute values
+sin θ = 3/5
+
+**Step 2:** Convert to decimal
+sin θ = 0.6
+
+**Therefore:** sin θ = 3/5 or 0.6`
+      };
+    }
+  }
+  
+  if (subject === 'Physical Sciences') {
+    if (topic.toLowerCase().includes('physics')) {
+      return {
+        questionText: `**Calculate the force:**
+
+Mass = 10 kg
+Acceleration = 5 m/s²
+
+**Use F = ma and show your working.**`,
+        solution: `**Formula:** F = ma
+
+**Step 1:** Substitute values
+F = 10 × 5
+
+**Step 2:** Calculate
+F = 50
+
+**Therefore:** F = 50 N`
+      };
+    }
+    
+    if (topic.toLowerCase().includes('chemistry')) {
+      return {
+        questionText: `**Balance this equation:**
+
+H₂ + O₂ → H₂O
+
+**Show your working steps.**`,
+        solution: `**Step 1:** Count atoms on each side
+Left: H = 2, O = 2
+Right: H = 2, O = 1
+
+**Step 2:** Balance oxygen by adding coefficient
+H₂ + O₂ → 2H₂O
+
+**Step 3:** Balance hydrogen
+2H₂ + O₂ → 2H₂O
+
+**Therefore:** 2H₂ + O₂ → 2H₂O`
+      };
+    }
+  }
+  
+  // Generic fallback
+  return {
+    questionText: `**Grade ${grade} ${subject} Practice Question:**
+
+Topic: ${topic}
+Challenge: ${struggle}
+
+**Solve this step by step.**`,
+    solution: `**Step 1:** Identify what the question is asking
+
+**Step 2:** Apply the appropriate method for ${topic}
+
+**Step 3:** Show all working clearly
+
+**Step 4:** Check your answer makes sense
+
+**Therefore:** [Complete solution addressing ${struggle}]`
+  };
+}
+
+
 
 async function handleConfirmedQuestionInteraction(user, text) {
   const lowerText = text.toLowerCase();
@@ -1273,35 +1551,34 @@ async function handleConfirmedQuestionInteraction(user, text) {
   );
 }
 
+// ===== ENHANCED SOLUTION DISPLAY =====
+
 async function showConfirmedTargetedSolution(user) {
   const profile = user.context.painpoint_profile;
+  const question = user.context.current_question;
+  
+  if (!question || !question.solution) {
+    const content = `**No solution available.**
 
+Please generate a question first.`;
+    const menu = generateEnhancedVisualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION, user.preferences.device_type);
+    return formatResponseWithEnhancedSeparation(content, menu, user.preferences.device_type);
+  }
+  
   const content = `📚 **TARGETED SOLUTION**
 
-**Addressing your confirmed challenge:** *${profile.specific_failure}*
+**For your challenge:** *${profile.specific_failure}*
 
-**Step 1:** Identify the specific approach for your struggle type
+${question.solution}
 
-**Step 2:** Apply the method that addresses *${profile.specific_failure}*
+**🎯 Strategy:** This solution specifically addresses your struggle with "${profile.specific_failure}"
 
-**Step 3:** Show all working steps clearly
-
-**Step 4:** Verify the answer makes sense
-
-**Therefore:** Complete solution specifically designed for your confirmed painpoint
-
-**🎯 Strategy:** This directly targets what you confirmed as your main challenge`;
-
-  const menu = generateEnhancedVisualMenu(
-    AI_INTEL_STATES.AI_QUESTION_GENERATION,
-    user.preferences.device_type
-  );
-  return formatResponseWithEnhancedSeparation(
-    content,
-    menu,
-    user.preferences.device_type
-  );
+**💡 Key Point:** Focus on understanding each step to overcome your specific challenge.`;
+  
+  const menu = generateEnhancedVisualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION, user.preferences.device_type);
+  return formatResponseWithEnhancedSeparation(content, menu, user.preferences.device_type);
 }
+
 
 // ===== MENU HANDLERS =====
 
@@ -1578,24 +1855,77 @@ async function handleMemoryHacksFlow(user, text) {
 // ===== API HANDLERS =====
 
 async function handleMockExam(req, res, start) {
-  return res.status(200).json({
-    timestamp: new Date().toISOString(),
-    user: "sophoniagoat",
-    mockExam: [
-      {
-        questionNumber: 1,
-        questionText:
-          "INTEGRATED: Questions generated using dynamic probing system",
-        solution: "Step-by-step solution with subject-specific targeting",
+  const {
+    grade = 10,
+    subject = "Mathematics",
+    questionCount = 1,
+    topics = "algebra",
+    painpoint = "solving equations",
+    confidence = "medium",
+  } = req.query;
+
+  try {
+    // Create a mock profile for API testing
+    const mockProfile = {
+      grade: grade,
+      subject: subject,
+      topic_struggles: topics,
+      specific_failure: painpoint,
+      assessment_type: "test",
+    };
+
+    const realQuestion = await generateRealAIQuestion(mockProfile);
+
+    return res.status(200).json({
+      timestamp: new Date().toISOString(),
+      user: "sophoniagoat",
+      mockExam: [
+        {
+          questionNumber: 1,
+          questionText: realQuestion.questionText,
+          solution: realQuestion.solution,
+          marksAllocated: 5,
+          targeted: true,
+          painpoint: painpoint,
+        },
+      ],
+      metadata: {
+        real_ai_generation: true,
+        tokens_used: realQuestion.tokens_used,
         dynamic_probing_integrated: true,
       },
-    ],
-    metadata: {
-      dynamic_probing_system: "integrated",
-      coverage: "Mathematics, Physical Sciences, Life Sciences, English",
-    },
-  });
+    });
+  } catch (error) {
+    // Use fallback if AI fails
+    const fallbackQuestion = generateFallbackQuestion({
+      grade: grade,
+      subject: subject,
+      topic_struggles: topics,
+      specific_failure: painpoint,
+    });
+
+    return res.status(200).json({
+      timestamp: new Date().toISOString(),
+      user: "sophoniagoat",
+      mockExam: [
+        {
+          questionNumber: 1,
+          questionText: fallbackQuestion.questionText,
+          solution: fallbackQuestion.solution,
+          marksAllocated: 5,
+          fallback_used: true,
+        },
+      ],
+      metadata: {
+        fallback_generation: true,
+        ai_error: error.message,
+      },
+    });
+  }
 }
+
+
+
 
 async function handleHomeworkOCR(req, res, start) {
   const { problemText } = req.body;
@@ -1645,15 +1975,35 @@ async function handleDatabaseTest(req, res, start) {
 }
 
 async function handleOpenAITest(req, res, start) {
-  return res.status(200).json({
-    timestamp: new Date().toISOString(),
-    user: "sophoniagoat",
-    openai: {
-      status: "INTEGRATED DYNAMIC PROBING SYSTEM ACTIVE",
-      model: "gpt-3.5-turbo",
-      integration: "Dynamic probing system properly connected to entry point",
-      coverage: "Mathematics, Physical Sciences, Life Sciences, English",
-      test_response: "Integrated dynamic probing system operational",
-    },
-  });
+  try {
+    const testProfile = {
+      grade: "11",
+      subject: "Mathematics",
+      topic_struggles: "algebra",
+      specific_failure: "I cannot solve for x",
+      assessment_type: "test",
+    };
+
+    const realQuestion = await generateRealAIQuestion(testProfile);
+
+    return res.status(200).json({
+      timestamp: new Date().toISOString(),
+      user: "sophoniagoat",
+      openai: {
+        status: "REAL AI QUESTION GENERATION ACTIVE",
+        model: "gpt-3.5-turbo",
+        test_question: realQuestion.questionText,
+        test_solution: realQuestion.solution.substring(0, 100) + "...",
+        tokens_used: realQuestion.tokens_used,
+        integration: "Dynamic probing + Real AI generation working",
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Real AI question generation test failed",
+      message: error.message,
+      timestamp: new Date().toISOString(),
+      fallback: "Using enhanced fallback question system",
+    });
+  }
 }
