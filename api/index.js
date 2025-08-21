@@ -1,8 +1,8 @@
 /**
- * GOAT Bot 2.0 - Fixed Conversational Flow
+ * GOAT Bot 2.0 - Fixed Echo Parameter for WhatsApp
  * User: sophoniagoat
- * Fixed: 2025-08-21 11:43:13 UTC
- * Implements proper menu flow and conversational AI
+ * Fixed: 2025-08-21 12:04:01 UTC
+ * Issue: Echo parameter was truncated, WhatsApp shows incomplete message
  */
 
 // Enhanced user state management
@@ -83,12 +83,13 @@ function parseGoatCommand(message, userContext) {
   }
 }
 
-// Enhanced response formatter
+// ===== FIXED RESPONSE FORMATTER =====
 function formatGoatResponse(message, metadata = {}) {
+  // CRITICAL FIX: Use full message for echo, not truncated version
   return {
     message,
     status: "success",
-    echo: message.split("\n")[0].substring(0, 50),
+    echo: message, // FIXED: Send full message to WhatsApp
     timestamp: new Date().toISOString(),
     user: "sophoniagoat",
     ...metadata,
@@ -99,7 +100,7 @@ function formatGoatResponse(message, metadata = {}) {
 module.exports = async (req, res) => {
   const start = Date.now();
 
-  console.log("🐐 GOAT Bot v2.0 - Fixed Conversational Flow");
+  console.log("🐐 GOAT Bot v2.0 - Fixed Echo Parameter");
 
   // Route based on URL path
   const { query } = req;
@@ -128,6 +129,7 @@ module.exports = async (req, res) => {
       message:
         "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
       status: "error",
+      echo: "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄", // FIXED: Full error message
       error: error.message,
       elapsed_ms: Date.now() - start,
       user: "sophoniagoat",
@@ -141,15 +143,18 @@ async function handleWebhook(req, res, start) {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
-      webhook: "GOAT Bot - Fixed Conversational Flow",
+      webhook: "GOAT Bot - Fixed Echo Parameter for WhatsApp",
       status: "Active",
-      flowDescription: "Proper menu → conversational AI → content delivery",
+      fix: "Echo parameter now sends full message content",
       testCommands: ["hi", "1", "2", "3", "menu"],
     });
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST requests supported" });
+    return res.status(405).json({
+      error: "Only POST requests supported",
+      echo: "Only POST requests supported", // FIXED: Add echo for error
+    });
   }
 
   const subscriberId =
@@ -157,7 +162,10 @@ async function handleWebhook(req, res, start) {
   const message = req.body.message || req.body.user_input || "";
 
   if (!subscriberId) {
-    return res.status(400).json({ error: "Missing subscriber_id (psid)" });
+    return res.status(400).json({
+      error: "Missing subscriber_id (psid)",
+      echo: "Missing subscriber_id (psid)", // FIXED: Add echo for error
+    });
   }
 
   console.log(
@@ -259,6 +267,7 @@ async function handleWebhook(req, res, start) {
   console.log(
     `✅ Reply generated (${reply.length} chars) | New state: ${user.current_menu}`
   );
+  console.log(`📤 Full reply being sent: "${reply.substring(0, 200)}..."`);
 
   return res.status(200).json(
     formatGoatResponse(reply, {
@@ -279,7 +288,7 @@ async function showWelcomeMenu(user) {
   user.current_menu = "welcome";
   user.context = {};
 
-  return `Welcome to The GOAT. I'm here help you study with calm and clarity.
+  const welcomeMessage = `Welcome to The GOAT. I'm here help you study with calm and clarity.
 
 What do you need right now?
 
@@ -288,6 +297,9 @@ What do you need right now?
 3️⃣ 🧮 Tips & Hacks
 
 Just pick a number! ✨`;
+
+  console.log(`📤 Welcome message length: ${welcomeMessage.length} chars`);
+  return welcomeMessage;
 }
 
 async function startExamPrepConversation(user) {
@@ -621,9 +633,7 @@ I'm generating SA-specific tricks using our local culture and landmarks...
 Type another subject or "menu" to go back! 🔙`;
 }
 
-// Keep existing API endpoint handlers (mock-exam, homework-ocr, etc.)
-// [Previous API handlers remain the same...]
-
+// Keep existing API endpoint handlers exactly the same
 async function handleMockExam(req, res, start) {
   const {
     grade = 10,
