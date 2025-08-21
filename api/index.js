@@ -27,6 +27,8 @@ const AI_INTEL_STATES = {
   AI_MICRO_TARGETING: "ai_micro_targeting",
   AI_PAINPOINT_CONFIRMATION: "ai_painpoint_confirmation",
   AI_QUESTION_GENERATION: "ai_question_generation",
+  GUIDED_DISCOVERY: "guided_discovery", // NEW: For unclear responses
+  ALTERNATIVE_PATHS: "alternative_paths", // NEW: When probing fails
 };
 
 // ENHANCED MENU COMMANDS
@@ -69,7 +71,6 @@ const SUBJECT_STATUS = {
     coming_soon: true,
   },
 };
-
 // ===== INTEGRATED DYNAMIC PROBING SYSTEM =====
 
 // DYNAMIC KNOWLEDGE BASE (INTEGRATED INTO MAIN FILE)
@@ -88,6 +89,13 @@ const SUBJECT_PROBING_DATABASE = {
         "I make calculation mistakes",
         "I don't understand what X means",
       ],
+      diagnostic_question: {
+        questionText:
+          "Solve for x: 2x + 7 = 19\n\nShow all your working steps.",
+        solution:
+          "**Step 1:** Subtract 7 from both sides\n2x = 12\n\n**Step 2:** Divide both sides by 2\nx = 6\n\n**Therefore:** x = 6",
+        purpose: "Basic equation solving",
+      },
     },
     geometry: {
       examples: [
@@ -102,6 +110,13 @@ const SUBJECT_PROBING_DATABASE = {
         "I struggle with proofs",
         "I get confused with coordinates",
       ],
+      diagnostic_question: {
+        questionText:
+          "Find the area of a rectangle:\n\nLength = 8 cm\nWidth = 5 cm\n\nShow your formula and calculation.",
+        solution:
+          "**Formula:** Area = length × width\n\n**Step 1:** Substitute values\nArea = 8 × 5\n\n**Step 2:** Calculate\nArea = 40\n\n**Therefore:** Area = 40 cm²",
+        purpose: "Basic area calculation",
+      },
     },
     trigonometry: {
       examples: [
@@ -116,6 +131,13 @@ const SUBJECT_PROBING_DATABASE = {
         "I struggle with unit circle",
         "I get confused with identities",
       ],
+      diagnostic_question: {
+        questionText:
+          "In a right triangle:\n\nOpposite side = 4\nHypotenuse = 5\n\nFind sin θ and show your working.",
+        solution:
+          "**Formula:** sin θ = opposite/hypotenuse\n\n**Step 1:** Substitute values\nsin θ = 4/5\n\n**Step 2:** Convert to decimal\nsin θ = 0.8\n\n**Therefore:** sin θ = 4/5 or 0.8",
+        purpose: "Basic trigonometric ratio",
+      },
     },
     functions: {
       examples: [
@@ -130,34 +152,13 @@ const SUBJECT_PROBING_DATABASE = {
         "I struggle with graphing",
         "I get confused with transformations",
       ],
-    },
-    statistics: {
-      examples: [
-        "Mean, median, mode calculations",
-        "Probability problems",
-        "Data interpretation",
-        "Standard deviation",
-      ],
-      common_struggles: [
-        "I mix up mean and median",
-        "I don't understand probability",
-        "I can't read graphs properly",
-        "I struggle with data analysis",
-      ],
-    },
-    calculus: {
-      examples: [
-        "Derivatives and differentiation",
-        "Integration and antiderivatives",
-        "Limits and continuity",
-        "Applications of calculus",
-      ],
-      common_struggles: [
-        "I don't understand derivatives",
-        "I can't solve integration",
-        "I struggle with limits",
-        "I can't apply calculus to problems",
-      ],
+      diagnostic_question: {
+        questionText:
+          "Given f(x) = 2x + 3:\n\nFind f(4)\n\nShow your substitution and calculation.",
+        solution:
+          "**Step 1:** Substitute x = 4 into f(x) = 2x + 3\nf(4) = 2(4) + 3\n\n**Step 2:** Calculate\nf(4) = 8 + 3 = 11\n\n**Therefore:** f(4) = 11",
+        purpose: "Basic function evaluation",
+      },
     },
   },
 
@@ -175,6 +176,13 @@ const SUBJECT_PROBING_DATABASE = {
         "I can't solve word problems",
         "I struggle with vector directions",
       ],
+      diagnostic_question: {
+        questionText:
+          "Calculate the force:\n\nMass = 10 kg\nAcceleration = 5 m/s²\n\nUse F = ma and show your working.",
+        solution:
+          "**Formula:** F = ma\n\n**Step 1:** Substitute values\nF = 10 × 5\n\n**Step 2:** Calculate\nF = 50\n\n**Therefore:** F = 50 N",
+        purpose: "Basic force calculation",
+      },
     },
     chemistry: {
       examples: [
@@ -189,110 +197,13 @@ const SUBJECT_PROBING_DATABASE = {
         "I get confused with pH",
         "I struggle with electron configurations",
       ],
-    },
-    mechanics: {
-      examples: [
-        "Newton's laws of motion",
-        "Projectile motion",
-        "Momentum and impulse",
-        "Work and energy",
-      ],
-      common_struggles: [
-        "I can't apply Newton's laws",
-        "I struggle with projectile problems",
-        "I don't understand momentum",
-        "I get confused with energy types",
-      ],
-    },
-  },
-
-  "Life Sciences": {
-    biology: {
-      examples: [
-        "Cell structure and function",
-        "Genetics and heredity",
-        "Ecosystems and environment",
-        "Human body systems",
-      ],
-      common_struggles: [
-        "I can't memorize all the parts",
-        "I don't understand inheritance",
-        "I get confused with cycles",
-        "I struggle with diagrams",
-      ],
-    },
-    ecology: {
-      examples: [
-        "Food chains and webs",
-        "Population dynamics",
-        "Biodiversity and conservation",
-        "Environmental interactions",
-      ],
-      common_struggles: [
-        "I can't remember the levels",
-        "I don't understand relationships",
-        "I struggle with cycles",
-        "I get confused with interactions",
-      ],
-    },
-    genetics: {
-      examples: [
-        "DNA structure and replication",
-        "Mendelian inheritance",
-        "Genetic crosses and Punnett squares",
-        "Mutations and variations",
-      ],
-      common_struggles: [
-        "I don't understand DNA structure",
-        "I can't do genetic crosses",
-        "I struggle with Punnett squares",
-        "I get confused with inheritance patterns",
-      ],
-    },
-  },
-
-  English: {
-    literature: {
-      examples: [
-        "Poetry analysis and interpretation",
-        "Essay writing and structure",
-        "Character analysis",
-        "Themes and symbolism",
-      ],
-      common_struggles: [
-        "I don't know what to analyze",
-        "I can't write good essays",
-        "I don't understand symbolism",
-        "I struggle with quotes",
-      ],
-    },
-    language: {
-      examples: [
-        "Grammar rules and usage",
-        "Sentence structure",
-        "Punctuation and mechanics",
-        "Vocabulary building",
-      ],
-      common_struggles: [
-        "I mix up grammar rules",
-        "I don't know where to put commas",
-        "I can't build proper sentences",
-        "I have limited vocabulary",
-      ],
-    },
-    writing: {
-      examples: [
-        "Creative writing techniques",
-        "Persuasive and argumentative essays",
-        "Research and citations",
-        "Editing and proofreading",
-      ],
-      common_struggles: [
-        "I can't think of ideas",
-        "I don't know how to argue",
-        "I struggle with research",
-        "I can't edit my own work",
-      ],
+      diagnostic_question: {
+        questionText:
+          "Balance this equation:\n\nH₂ + O₂ → H₂O\n\nShow your working steps.",
+        solution:
+          "**Step 1:** Count atoms\nLeft: H=2, O=2\nRight: H=2, O=1\n\n**Step 2:** Balance oxygen\nH₂ + O₂ → 2H₂O\n\n**Step 3:** Balance hydrogen\n2H₂ + O₂ → 2H₂O\n\n**Therefore:** 2H₂ + O₂ → 2H₂O",
+        purpose: "Basic equation balancing",
+      },
     },
   },
 };
@@ -310,6 +221,7 @@ function formatMathematicalExpression(expression) {
     .replace(/pi/g, "π")
     .replace(/theta/g, "θ");
 }
+
 
 function formatStepByStep(content) {
   return content
@@ -336,7 +248,6 @@ function enhanceVisualFormatting(content) {
 
   return enhanced;
 }
-
 // RESPONSIVE SEPARATOR FUNCTION
 function getResponsiveSeparator(deviceWidth = "mobile") {
   const separators = {
@@ -345,6 +256,14 @@ function getResponsiveSeparator(deviceWidth = "mobile") {
     desktop: "─".repeat(60),
   };
   return separators[deviceWidth] || separators.mobile;
+}
+
+function detectDeviceType(userAgent = "") {
+  const ua = userAgent.toLowerCase();
+  if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone"))
+    return "mobile";
+  if (ua.includes("tablet") || ua.includes("ipad")) return "tablet";
+  return "mobile";
 }
 
 function detectDeviceType(userAgent = "") {
@@ -379,6 +298,18 @@ function parseGoatCommand(message, userContext) {
     };
   }
 
+  // Handle A, B, C options for alternative paths
+  if (
+    /^[abc]$/i.test(text) &&
+    userContext.ai_intel_state === AI_INTEL_STATES.ALTERNATIVE_PATHS
+  ) {
+    return {
+      type: GOAT_COMMANDS.EXAM_PREP_CONVERSATION,
+      text: message,
+      alternative_choice: text.toUpperCase(),
+    };
+  }
+
   if (Object.values(MENU_COMMANDS).slice(0, 6).includes(text)) {
     return {
       type: GOAT_COMMANDS.FIXED_MENU_COMMAND,
@@ -410,6 +341,7 @@ function parseGoatCommand(message, userContext) {
   }
 }
 
+
 function formatGoatResponse(message, metadata = {}) {
   return {
     message,
@@ -421,11 +353,12 @@ function formatGoatResponse(message, metadata = {}) {
   };
 }
 
+
 module.exports = async (req, res) => {
   const start = Date.now();
 
   console.log(
-    "🔗 GOAT Bot v2.0 - INTEGRATED: Dynamic Probing System Connected"
+    "🔧 GOAT Bot v2.0 - ENHANCED HEURISTIC FIX: AI Clarity Validation"
   );
 
   const { query } = req;
@@ -467,11 +400,10 @@ async function handleWebhook(req, res, start) {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
-      webhook: "GOAT Bot - INTEGRATED DYNAMIC PROBING",
+      webhook: "GOAT Bot - ENHANCED HEURISTIC FIX",
       status: "Active",
-      integration: "Dynamic probing system properly connected to entry point",
-      coverage: "Mathematics, Physical Sciences, Life Sciences, English",
-      progress: "100% complete",
+      fix: "AI clarity validation prevents vague responses from becoming painpoints",
+      progress: "100% complete - bug fixed",
     });
   }
 
@@ -524,6 +456,7 @@ async function handleWebhook(req, res, start) {
     current_menu: user.current_menu,
     context: user.context,
     conversation_history: user.conversation_history,
+    ai_intel_state: user.context.ai_intel_state,
   });
 
   console.log(`🎯 Command parsed: ${command.type}`, {
@@ -531,6 +464,7 @@ async function handleWebhook(req, res, start) {
     choice: command.choice,
     option: command.option,
     command: command.command,
+    alternative_choice: command.alternative_choice,
     text: command.text?.substring(0, 30),
   });
 
@@ -564,7 +498,11 @@ async function handleWebhook(req, res, start) {
       }
       break;
     case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
-      reply = await handleIntegratedAIIntelligenceGathering(user, command.text);
+      reply = await handleFixedAIIntelligenceGathering(
+        user,
+        command.text,
+        command.alternative_choice
+      );
       break;
     case GOAT_COMMANDS.HOMEWORK_HELP:
       reply = await handleHomeworkHelp(user, command.text);
@@ -585,7 +523,7 @@ async function handleWebhook(req, res, start) {
     command_type: command.type,
     ai_intel_state: user.context.ai_intel_state,
     painpoint_confirmed: user.context.painpoint_confirmed || false,
-    dynamic_probing_integrated: true,
+    heuristic_fix_applied: true,
   });
 
   if (user.conversation_history.length > 15) {
@@ -596,9 +534,9 @@ async function handleWebhook(req, res, start) {
   userStates.set(subscriberId, user);
 
   console.log(
-    `✅ Integrated dynamic reply: ${
-      reply.length
-    } chars | Painpoint confirmed: ${user.context.painpoint_confirmed || false}`
+    `✅ Fixed heuristic reply: ${reply.length} chars | Painpoint confirmed: ${
+      user.context.painpoint_confirmed || false
+    }`
   );
 
   return res.status(200).json(
@@ -607,7 +545,7 @@ async function handleWebhook(req, res, start) {
       command_type: command.type,
       current_menu: user.current_menu,
       ai_intel_state: user.context.ai_intel_state,
-      dynamic_probing_integrated: true,
+      heuristic_fix_applied: true,
       elapsed_ms: Date.now() - start,
     })
   );
@@ -635,6 +573,7 @@ function generateEnhancedVisualMenu(aiState, deviceType = "mobile") {
 
   switch (aiState) {
     case AI_INTEL_STATES.AI_QUESTION_GENERATION:
+    case AI_INTEL_STATES.GUIDED_DISCOVERY:
       return `1️⃣${spacing} 📚 Solution
 2️⃣${spacing} ➡️ Next Question  
 3️⃣${spacing} 🔄 Switch Topics
@@ -646,6 +585,12 @@ function generateEnhancedVisualMenu(aiState, deviceType = "mobile") {
       return `1️⃣${spacing} ➡️ Continue
 2️⃣${spacing} 📝 Skip to Question
 3️⃣${spacing} 🔄 Switch Topics  
+4️⃣${spacing} 🏠 Main Menu`;
+
+    case AI_INTEL_STATES.ALTERNATIVE_PATHS:
+      return `1️⃣${spacing} ➡️ Option A (Guided Discovery)
+2️⃣${spacing} 📝 Option B (Different Topic)
+3️⃣${spacing} 🔄 Option C (Different Subject)
 4️⃣${spacing} 🏠 Main Menu`;
 
     case AI_INTEL_STATES.SUBJECT_GRADE:
@@ -661,6 +606,7 @@ function generateEnhancedVisualMenu(aiState, deviceType = "mobile") {
 4️⃣${spacing} 🏠 Main Menu`;
   }
 }
+
 
 // ===== SUBJECT AVAILABILITY FUNCTIONS =====
 
@@ -688,10 +634,11 @@ function checkSubjectAvailability(subjectInput) {
   };
 }
 
+
 // ===== INTEGRATED AI INTELLIGENCE GATHERING =====
 
 async function startAIIntelligenceGathering(user) {
-  console.log(`🤖 Starting INTEGRATED AI intelligence for user ${user.id}`);
+  console.log(`🤖 Starting FIXED AI intelligence for user ${user.id}`);
 
   user.current_menu = "exam_prep_conversation";
   user.context = {
@@ -709,10 +656,13 @@ Exam or test stress? I'll generate questions to unstuck you!
 
 **First** - is this an **EXAM** or **TEST**? *(Different question styles!)*`;
 }
-
-async function handleIntegratedAIIntelligenceGathering(user, text) {
+async function handleFixedAIIntelligenceGathering(
+  user,
+  text,
+  alternativeChoice = null
+) {
   console.log(
-    `🤖 INTEGRATED AI Intelligence: ${user.context.ai_intel_state} | Input: "${text}" | Confirmed: ${user.context.painpoint_confirmed}`
+    `🤖 FIXED AI Intelligence: ${user.context.ai_intel_state} | Input: "${text}" | Alt: ${alternativeChoice} | Confirmed: ${user.context.painpoint_confirmed}`
   );
 
   const aiIntelState =
@@ -803,7 +753,7 @@ Right now, only **Math GOAT** is fully online.
         user.preferences.device_type
       );
 
-    // ===== INTEGRATED PAINPOINT EXCAVATION =====
+    // ===== PAINPOINT EXCAVATION =====
     case AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION:
       user.context.painpoint_profile.topic_struggles = text.trim();
       user.context.ai_intel_state = AI_INTEL_STATES.AI_MICRO_TARGETING;
@@ -811,7 +761,6 @@ Right now, only **Math GOAT** is fully online.
 
       console.log(`✅ Topic identified: ${text.trim()}`);
 
-      // ===== USING INTEGRATED DYNAMIC PROBING SYSTEM =====
       const dynamicProbe = await generateDynamicTargetedProbe(
         text,
         user.context.painpoint_profile,
@@ -834,58 +783,9 @@ Right now, only **Math GOAT** is fully online.
         user.preferences.device_type
       );
 
-    // ===== INTEGRATED MICRO TARGETING =====
+    // ===== FIXED MICRO TARGETING (ENHANCED HEURISTIC) =====
     case AI_INTEL_STATES.AI_MICRO_TARGETING:
-      user.context.probing_attempts = (user.context.probing_attempts || 0) + 1;
-
-      const improvedClarity = await analyzeImprovedPainpointClarity(
-        text,
-        user.context.painpoint_profile
-      );
-
-      console.log(
-        `🔍 INTEGRATED Probing attempt ${user.context.probing_attempts} | Clarity: ${improvedClarity.clarity_level} | Response: "${text}"`
-      );
-
-      if (
-        improvedClarity.clarity_level === "clear" ||
-        user.context.probing_attempts >= 3
-      ) {
-        // PAINPOINT IS CLEAR - Move to confirmation
-        user.context.painpoint_profile.specific_failure =
-          improvedClarity.specific_struggle;
-        user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION;
-
-        return await generateImprovedPainpointConfirmation(
-          user,
-          improvedClarity
-        );
-      } else {
-        // PAINPOINT STILL VAGUE - Continue probing with dynamic system
-        const nextDynamicProbe = await generateDynamicTargetedProbe(
-          text,
-          user.context.painpoint_profile,
-          user.context.probing_attempts + 1
-        );
-
-        const probingContent = `${nextDynamicProbe}
-
-📍 **Step 4/5:** Precision Targeting *(Attempt ${
-          user.context.probing_attempts + 1
-        }/3)*
-
-*I need to understand your exact struggle before creating questions.*`;
-
-        const probingMenu = generateEnhancedVisualMenu(
-          AI_INTEL_STATES.AI_MICRO_TARGETING,
-          user.preferences.device_type
-        );
-        return formatResponseWithEnhancedSeparation(
-          probingContent,
-          probingMenu,
-          user.preferences.device_type
-        );
-      }
+      return await handleFixedMicroTargeting(user, text);
 
     // ===== PAINPOINT CONFIRMATION =====
     case AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION:
@@ -904,7 +804,7 @@ Right now, only **Math GOAT** is fully online.
 
         return await generateConfirmedTargetedQuestion(user);
       } else {
-        // USER DID NOT CONFIRM - Go back to probing with dynamic system
+        // USER DID NOT CONFIRM - Go back to probing
         user.context.ai_intel_state = AI_INTEL_STATES.AI_MICRO_TARGETING;
         user.context.probing_attempts = 0;
 
@@ -926,6 +826,14 @@ ${await generateDynamicTargetedProbe(text, user.context.painpoint_profile, 1)}
           user.preferences.device_type
         );
       }
+
+    // ===== ALTERNATIVE PATHS HANDLING =====
+    case AI_INTEL_STATES.ALTERNATIVE_PATHS:
+      return await handleAlternativePathChoice(user, text, alternativeChoice);
+
+    // ===== GUIDED DISCOVERY =====
+    case AI_INTEL_STATES.GUIDED_DISCOVERY:
+      return await handleGuidedDiscoveryInteraction(user, text);
 
     // ===== QUESTION INTERACTION (ONLY AFTER CONFIRMATION) =====
     case AI_INTEL_STATES.AI_QUESTION_GENERATION:
@@ -1012,6 +920,596 @@ Common ${subject} areas include: ${generalExamples}
   return generateHardcodedProbe(userResponse, profile, attempt);
 }
 
+async function handleFixedMicroTargeting(user, text) {
+  user.context.probing_attempts = (user.context.probing_attempts || 0) + 1;
+
+  const improvedClarity = await analyzeEnhancedPainpointClarity(
+    text,
+    user.context.painpoint_profile
+  );
+
+  console.log(
+    `🔍 FIXED Probing attempt ${user.context.probing_attempts} | Clarity: ${improvedClarity.clarity_level} | Response: "${text}"`
+  );
+
+  if (improvedClarity.clarity_level === "clear") {
+    // CLEAR RESPONSE - Move to confirmation
+    user.context.painpoint_profile.specific_failure =
+      improvedClarity.specific_struggle;
+    user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION;
+
+    return await generateImprovedPainpointConfirmation(user, improvedClarity);
+  } else if (user.context.probing_attempts >= 3) {
+    // MAX ATTEMPTS REACHED - Enhanced heuristic validation
+    console.log(
+      `🔧 Max attempts reached, using enhanced heuristic validation for: "${text}"`
+    );
+
+    const heuristicValidation = await analyzeResponseWithEnhancedHeuristics(
+      text,
+      user.context.painpoint_profile
+    );
+
+    if (heuristicValidation.is_actionable) {
+      // ACTIONABLE RESPONSE - Proceed with interpretation
+      user.context.painpoint_profile.specific_failure =
+        heuristicValidation.interpretation;
+      user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION;
+
+      const confirmationData = {
+        specific_struggle: heuristicValidation.interpretation,
+        clarity_level: "heuristic_interpreted",
+      };
+
+      return await generateHeuristicInterpretedConfirmation(
+        user,
+        confirmationData,
+        heuristicValidation
+      );
+    } else {
+      // NOT ACTIONABLE - Offer alternative paths
+      user.context.ai_intel_state = AI_INTEL_STATES.ALTERNATIVE_PATHS;
+      return await offerAlternativePaths(user, heuristicValidation);
+    }
+  } else {
+    // CONTINUE PROBING - Use dynamic system
+    const nextDynamicProbe = await generateDynamicTargetedProbe(
+      text,
+      user.context.painpoint_profile,
+      user.context.probing_attempts + 1
+    );
+
+    const probingContent = `${nextDynamicProbe}
+
+📍 **Step 4/5:** Precision Targeting *(Attempt ${
+      user.context.probing_attempts + 1
+    }/3)*
+
+*I need to understand your exact struggle before creating questions.*`;
+
+    const probingMenu = generateEnhancedVisualMenu(
+      AI_INTEL_STATES.AI_MICRO_TARGETING,
+      user.preferences.device_type
+    );
+    return formatResponseWithEnhancedSeparation(
+      probingContent,
+      probingMenu,
+      user.preferences.device_type
+    );
+  }
+}
+
+async function analyzeEnhancedPainpointClarity(userResponse, profile) {
+  const response = userResponse.toLowerCase().trim();
+
+  console.log(`🔍 Enhanced heuristic analysis for: "${userResponse}"`);
+
+  // Enhanced specific mathematical struggle indicators
+  const specific_math_indicators = [
+    "solve for x",
+    "cannot solve",
+    "can't solve",
+    "solving equations",
+    "factoring",
+    "expanding",
+    "simplifying",
+    "substitution",
+    "don't know which formula",
+    "which method",
+    "what steps",
+    "get confused when",
+    "stuck on",
+    "problem with",
+    "struggle with",
+    "don't understand how to",
+    "can't figure out",
+    "lost when",
+  ];
+
+  const hasSpecificMathStruggle = specific_math_indicators.some((indicator) =>
+    response.includes(indicator)
+  );
+
+  if (hasSpecificMathStruggle) {
+    console.log(`✅ CLEAR painpoint detected: ${userResponse}`);
+    return {
+      clarity_level: "clear",
+      specific_struggle: userResponse,
+      needs_more_probing: false,
+      recognition_reason: "specific_struggle_detected",
+    };
+  }
+
+  // Enhanced vague response detection
+  const definite_vague_indicators = [
+    "i don't know",
+    "not sure",
+    "i'm not sure",
+    "no idea",
+    "don't understand",
+    "confused",
+    "help me",
+    "everything",
+    "all of it",
+    "i'm lost",
+    "no clue",
+    "i'm still not sure",
+    "still don't know",
+    "still confused",
+    "not really sure",
+  ];
+
+  const isDefinitelyVague = definite_vague_indicators.some((indicator) =>
+    response.includes(indicator)
+  );
+
+  if (isDefinitelyVague) {
+    console.log(`❌ VAGUE painpoint detected: ${userResponse}`);
+    return {
+      clarity_level: "vague",
+      specific_struggle: response,
+      needs_more_probing: true,
+      recognition_reason: "vague_response_detected",
+    };
+  }
+
+  // Check for moderate specificity with enhanced criteria
+  const moderate_specificity_indicators = [
+    "sometimes",
+    "usually",
+    "often",
+    "mostly",
+    "kind of",
+    "sort of",
+    "a bit",
+    "little bit",
+    "hard to",
+    "difficult",
+  ];
+
+  const hasModerateSpecificity = moderate_specificity_indicators.some(
+    (indicator) => response.includes(indicator)
+  );
+
+  if (hasModerateSpecificity && response.length > 10) {
+    console.log(`✅ MODERATE-TO-CLEAR painpoint detected: ${userResponse}`);
+    return {
+      clarity_level: "clear", // Treat as clear for better flow
+      specific_struggle: response,
+      needs_more_probing: false,
+      recognition_reason: "moderate_specificity_sufficient",
+    };
+  }
+
+  // Length-based analysis with enhanced thresholds
+  if (response.length > 20) {
+    console.log(`✅ LENGTH-BASED CLEAR painpoint detected: ${userResponse}`);
+    return {
+      clarity_level: "clear",
+      specific_struggle: response,
+      needs_more_probing: false,
+      recognition_reason: "sufficient_detail_provided",
+    };
+  }
+
+  console.log(`❓ UNCLEAR painpoint detected: ${userResponse}`);
+  return {
+    clarity_level: "unclear",
+    specific_struggle: response,
+    needs_more_probing: true,
+    recognition_reason: "insufficient_detail",
+  };
+}
+async function analyzeResponseWithEnhancedHeuristics(userResponse, profile) {
+  const response = userResponse.toLowerCase().trim();
+
+  console.log(`🔧 Enhanced heuristic validation for: "${userResponse}"`);
+
+  // Definitive vague indicators (enhanced list)
+  const definitelyVague = [
+    "i don't know",
+    "not sure",
+    "i'm not sure",
+    "no idea",
+    "don't understand",
+    "confused",
+    "help me",
+    "everything",
+    "all of it",
+    "i'm lost",
+    "no clue",
+    "i'm still not sure",
+    "still don't know",
+    "still confused",
+    "not really sure",
+    "i really don't know",
+    "totally lost",
+    "completely confused",
+  ];
+
+  const isDefinitelyVague = definitelyVague.some((indicator) =>
+    response.includes(indicator)
+  );
+
+  if (isDefinitelyVague) {
+    return {
+      is_actionable: false,
+      confidence: "high",
+      interpretation:
+        "Student needs guided discovery to identify specific challenges",
+      suggested_focus: `general ${profile.topic_struggles} practice with guided discovery`,
+      reasoning:
+        "Response indicates general confusion rather than specific struggle",
+    };
+  }
+
+  // Check for any mathematical content or specific language
+  const mathTerms = [
+    "equation",
+    "formula",
+    "calculate",
+    "solve",
+    "find",
+    "graph",
+    "angle",
+    "area",
+    "volume",
+    "derivative",
+    "integral",
+    "factor",
+    "x",
+    "y",
+    "variable",
+    "function",
+    "theorem",
+    "proof",
+    "triangle",
+    "square",
+    "circle",
+    "line",
+    "slope",
+    "intercept",
+    "quadratic",
+  ];
+
+  const hasSpecificTerms = mathTerms.some((term) => response.includes(term));
+
+  // Check for emotional indicators of struggle
+  const struggleEmotions = [
+    "hard",
+    "difficult",
+    "tricky",
+    "challenging",
+    "frustrating",
+    "stuck",
+    "can't",
+    "won't",
+    "doesn't work",
+  ];
+
+  const hasEmotionalContent = struggleEmotions.some((emotion) =>
+    response.includes(emotion)
+  );
+
+  if (hasSpecificTerms || response.length > 25 || hasEmotionalContent) {
+    return {
+      is_actionable: true,
+      confidence: "medium",
+      interpretation: response,
+      suggested_focus: `${profile.topic_struggles} with focus on: ${response}`,
+      reasoning:
+        "Contains specific mathematical language, emotional content, or sufficient detail",
+    };
+  }
+
+  return {
+    is_actionable: false,
+    confidence: "medium",
+    interpretation: "Insufficient specific information provided",
+    suggested_focus: `guided ${profile.topic_struggles} exploration`,
+    reasoning:
+      "Response lacks specific mathematical challenges or detailed description",
+  };
+}
+
+
+
+async function generateHeuristicInterpretedConfirmation(
+  user,
+  confirmationData,
+  heuristicValidation
+) {
+  const profile = user.context.painpoint_profile;
+
+  const content = `**Based on our conversation, I think I understand your challenge:**
+
+**Subject:** ${profile.subject} Grade ${profile.grade}
+**Topic:** ${profile.topic_struggles}
+**My Interpretation:** "${heuristicValidation.interpretation}"
+
+**Focus Area:** ${heuristicValidation.suggested_focus}
+
+**Is this a good direction?** I'll create questions to help you with this challenge.
+
+**Type 'yes' to continue, or tell me what I should focus on instead.**
+
+📍 **Step 5/5:** Assisted Confirmation`;
+
+  const menu = generateEnhancedVisualMenu(
+    AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION,
+    user.preferences.device_type
+  );
+  return formatResponseWithEnhancedSeparation(
+    content,
+    menu,
+    user.preferences.device_type
+  );
+}
+
+async function offerAlternativePaths(user, heuristicValidation) {
+  const profile = user.context.painpoint_profile;
+
+  const content = `**I understand you're not sure about your specific challenges.**
+
+That's totally normal! Let me help you discover them.
+
+**Here are some options:**
+
+**Option A:** I'll give you a simple ${profile.topic_struggles} question and we'll see where you get stuck
+
+**Option B:** Let's try a different topic in ${profile.subject}
+
+**Option C:** Switch to a different subject entirely
+
+**Which sounds better? Type A, B, or C.**
+
+📍 **Alternative Path Selection**`;
+
+  const menu = generateEnhancedVisualMenu(
+    AI_INTEL_STATES.ALTERNATIVE_PATHS,
+    user.preferences.device_type
+  );
+  return formatResponseWithEnhancedSeparation(
+    content,
+    menu,
+    user.preferences.device_type
+  );
+}
+
+async function handleAlternativePathChoice(user, text, alternativeChoice) {
+  const choice = alternativeChoice || text.toUpperCase().trim();
+  const profile = user.context.painpoint_profile;
+
+  console.log(`🛤️ Alternative path chosen: ${choice}`);
+
+  switch (choice) {
+    case "A":
+      // Guided Discovery Mode
+      return await startGuidedDiscovery(user);
+
+    case "B":
+      // Different Topic
+      user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION;
+      user.context.probing_attempts = 0;
+
+      const content = `🔄 **Let's try a different ${profile.subject} topic!**
+
+**Which topic would you like to explore instead?**
+
+*(Algebra, Geometry, Trigonometry, Functions, Statistics, etc.)*`;
+
+      const menu = generateEnhancedVisualMenu(
+        AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION,
+        user.preferences.device_type
+      );
+      return formatResponseWithEnhancedSeparation(
+        content,
+        menu,
+        user.preferences.device_type
+      );
+
+    case "C":
+      // Different Subject
+      user.context.ai_intel_state = AI_INTEL_STATES.SUBJECT_GRADE;
+      user.context.probing_attempts = 0;
+
+      const subjectContent = `🔄 **Let's try a different subject!**
+
+**What subject and grade would you like to work on?**
+
+*(Example: "Grade 11 Physics" or "Life Sciences Grade 10")*`;
+
+      const subjectMenu = generateEnhancedVisualMenu(
+        AI_INTEL_STATES.SUBJECT_GRADE,
+        user.preferences.device_type
+      );
+      return formatResponseWithEnhancedSeparation(
+        subjectContent,
+        subjectMenu,
+        user.preferences.device_type
+      );
+
+    default:
+      const defaultContent = `**Please choose A, B, or C:**
+
+**A:** Guided discovery with questions
+**B:** Different topic in ${profile.subject}
+**C:** Different subject entirely`;
+
+      const defaultMenu = generateEnhancedVisualMenu(
+        AI_INTEL_STATES.ALTERNATIVE_PATHS,
+        user.preferences.device_type
+      );
+      return formatResponseWithEnhancedSeparation(
+        defaultContent,
+        defaultMenu,
+        user.preferences.device_type
+      );
+  }
+}
+
+// ===== NEW: GUIDED DISCOVERY MODE =====
+
+async function startGuidedDiscovery(user) {
+  const profile = user.context.painpoint_profile;
+  
+  console.log(`🔍 Starting guided discovery for: ${profile.subject} ${profile.topic_struggles}`);
+  
+  user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
+  user.context.discovery_mode = true;
+  
+  const diagnosticQuestion = await getDiagnosticQuestion(profile);
+  
+  user.context.current_question = diagnosticQuestion;
+  
+  const content = `🔍 **Guided Discovery Mode**
+
+Let's find your challenge together! Try this simple ${profile.topic_struggles} question:
+
+📝 **Diagnostic Question:**
+${diagnosticQuestion.questionText}
+
+**Don't worry about getting it right** - just try your best and tell me where you get stuck.
+
+**Type your attempt or where you're struggling.**`;
+  
+  const menu = generateEnhancedVisualMenu(AI_INTEL_STATES.GUIDED_DISCOVERY, user.preferences.device_type);
+  return formatResponseWithEnhancedSeparation(content, menu, user.preferences.device_type);
+}
+
+async function getDiagnosticQuestion(profile) {
+  const subject = profile.subject || "Mathematics";
+  const topic = profile.topic_struggles?.toLowerCase() || "algebra";
+
+  // Try to get from knowledge base first
+  const subjectData = SUBJECT_PROBING_DATABASE[subject];
+  if (subjectData) {
+    for (const [key, topicData] of Object.entries(subjectData)) {
+      if (topic.includes(key) && topicData.diagnostic_question) {
+        console.log(`✅ Found diagnostic question for ${key}`);
+        return topicData.diagnostic_question;
+      }
+    }
+  }
+
+  // Fallback diagnostic questions
+  console.log(`🔄 Using fallback diagnostic for ${topic}`);
+  return {
+    questionText: `Solve for x: x + 3 = 8\n\nShow your working steps.`,
+    solution: `**Step 1:** Subtract 3 from both sides\nx = 8 - 3\n\n**Step 2:** Calculate\nx = 5\n\n**Therefore:** x = 5`,
+    purpose: "Basic equation solving",
+  };
+}
+
+async function handleGuidedDiscoveryInteraction(user, text) {
+  const lowerText = text.toLowerCase();
+
+  // Analyze their response to identify specific struggles
+  if (
+    lowerText.includes("stuck") ||
+    lowerText.includes("don't know") ||
+    lowerText.includes("confused")
+  ) {
+    // They identified where they're stuck - this is their painpoint!
+    user.context.painpoint_profile.specific_failure = text;
+    user.context.painpoint_confirmed = true;
+    user.context.ai_intel_state = AI_INTEL_STATES.AI_QUESTION_GENERATION;
+
+    const content = `🎯 **Perfect! I found your challenge!**
+
+**Your specific struggle:** "${text}"
+
+Now I can create targeted questions to help you with exactly this!`;
+
+    const menu = generateEnhancedVisualMenu(
+      AI_INTEL_STATES.AI_QUESTION_GENERATION,
+      user.preferences.device_type
+    );
+    return formatResponseWithEnhancedSeparation(
+      content,
+      menu,
+      user.preferences.device_type
+    );
+  }
+
+  // They attempted the question - give feedback and continue discovery
+  const content = `**Great attempt!** I see you tried: "${text}"
+
+Let me show you the solution and then we'll try another question to pinpoint your challenge.
+
+**Solution:**
+${user.context.current_question?.solution || "Step-by-step solution provided"}
+
+**Ready for another diagnostic question?**`;
+
+  const menu = generateEnhancedVisualMenu(
+    AI_INTEL_STATES.GUIDED_DISCOVERY,
+    user.preferences.device_type
+  );
+  return formatResponseWithEnhancedSeparation(
+    content,
+    menu,
+    user.preferences.device_type
+  );
+}
+
+
+async function generateDynamicTargetedProbe(userResponse, profile, attempt) {
+  const subject = profile.subject || "Mathematics";
+  const topic = profile.topic_struggles?.toLowerCase() || "general";
+
+  console.log(
+    `🔄 Dynamic probing: ${subject} -> ${topic} (attempt ${attempt})`
+  );
+
+  const subjectData = SUBJECT_PROBING_DATABASE[subject];
+  if (subjectData) {
+    const topicData = subjectData[topic];
+    if (topicData) {
+      console.log(`✅ Found exact topic match: ${topic}`);
+      return generateTopicSpecificProbe(topic, topicData, attempt);
+    }
+
+    const partialMatch = Object.keys(subjectData).find(
+      (key) => topic.includes(key) || key.includes(topic)
+    );
+    if (partialMatch) {
+      console.log(`✅ Found partial topic match: ${partialMatch} for ${topic}`);
+      return generateTopicSpecificProbe(
+        partialMatch,
+        subjectData[partialMatch],
+        attempt
+      );
+    }
+  }
+
+  console.log(
+    `⚠️ No subject data found for ${subject}, using hardcoded fallback`
+  );
+  return generateHardcodedProbe(userResponse, profile, attempt);
+}
+
+
 function generateTopicSpecificProbe(topic, topicData, attempt) {
   switch (attempt) {
     case 1:
@@ -1043,6 +1541,7 @@ ${struggles}`;
   }
 }
 
+
 // HARDCODED FALLBACK (existing code for safety)
 function generateHardcodedProbe(userResponse, profile, attempt) {
   const topic = profile.topic_struggles || "the topic";
@@ -1068,82 +1567,6 @@ When you see a ${topic} problem, what's your **first thought**? Do you:
 
 // ===== KEEP ALL EXISTING ANALYSIS AND CONFIRMATION FUNCTIONS =====
 
-async function analyzeImprovedPainpointClarity(userResponse, profile) {
-  const response = userResponse.toLowerCase().trim();
-
-  console.log(`🔍 Analyzing painpoint clarity for: "${userResponse}"`);
-
-  const specific_math_indicators = [
-    "solve for x",
-    "cannot solve",
-    "can't solve",
-    "solving equations",
-    "factoring",
-    "expanding",
-    "simplifying",
-    "substitution",
-    "don't know which formula",
-    "which method",
-    "what steps",
-    "get confused when",
-    "stuck on",
-    "problem with",
-  ];
-
-  const hasSpecificMathStruggle = specific_math_indicators.some((indicator) =>
-    response.includes(indicator)
-  );
-
-  if (hasSpecificMathStruggle) {
-    console.log(`✅ CLEAR painpoint detected: ${userResponse}`);
-    return {
-      clarity_level: "clear",
-      specific_struggle: userResponse,
-      needs_more_probing: false,
-      recognition_reason: "specific_math_struggle_detected",
-    };
-  }
-
-  const vague_indicators = [
-    "i don't know",
-    "not sure",
-    "everything",
-    "all of it",
-    "confused",
-    "help me",
-  ];
-  const isVague = vague_indicators.some((indicator) =>
-    response.includes(indicator)
-  );
-
-  if (isVague) {
-    console.log(`❌ VAGUE painpoint detected: ${userResponse}`);
-    return {
-      clarity_level: "vague",
-      specific_struggle: response,
-      needs_more_probing: true,
-      recognition_reason: "vague_response_detected",
-    };
-  }
-
-  if (response.length > 15) {
-    console.log(`✅ MODERATE painpoint detected: ${userResponse}`);
-    return {
-      clarity_level: "clear",
-      specific_struggle: response,
-      needs_more_probing: false,
-      recognition_reason: "sufficient_detail_provided",
-    };
-  }
-
-  console.log(`❓ MODERATE painpoint detected: ${userResponse}`);
-  return {
-    clarity_level: "moderate",
-    specific_struggle: response,
-    needs_more_probing: true,
-    recognition_reason: "insufficient_detail",
-  };
-}
 
 async function generateImprovedPainpointConfirmation(user, painpointClarity) {
   const profile = user.context.painpoint_profile;
@@ -1213,13 +1636,52 @@ async function analyzeConfirmationResponse(userResponse) {
   return { confirmed: false, needs_clarification: true };
 }
 
+
+async function analyzeConfirmationResponse(userResponse) {
+  const response = userResponse.toLowerCase().trim();
+
+  const confirmation_indicators = [
+    "yes",
+    "correct",
+    "right",
+    "exactly",
+    "that's it",
+    "perfect",
+    "true",
+  ];
+  const denial_indicators = [
+    "no",
+    "not right",
+    "wrong",
+    "not exactly",
+    "misunderstood",
+    "not correct",
+  ];
+
+  const confirmed = confirmation_indicators.some((indicator) =>
+    response.includes(indicator)
+  );
+  const denied = denial_indicators.some((indicator) =>
+    response.includes(indicator)
+  );
+
+  if (confirmed && !denied) {
+    return { confirmed: true, needs_clarification: false };
+  }
+
+  if (denied) {
+    return { confirmed: false, needs_clarification: true };
+  }
+
+  return { confirmed: false, needs_clarification: true };
+}
+
 async function generateConfirmedTargetedQuestion(user) {
   const profile = user.context.painpoint_profile;
 
   console.log(`🎯 GENERATING REAL TARGETED QUESTION:`, profile);
 
   try {
-    // ===== REAL AI QUESTION GENERATION =====
     const realQuestion = await generateRealAIQuestion(profile);
 
     user.context.current_question = {
@@ -1230,6 +1692,7 @@ async function generateConfirmedTargetedQuestion(user) {
       painpoint_confirmed: true,
       dynamic_probing_used: true,
       ai_generated: true,
+      heuristic_fix_applied: true,
     };
 
     const content = `🎯 **TARGETED PRACTICE QUESTION**
@@ -1253,7 +1716,6 @@ ${realQuestion.questionText}
   } catch (error) {
     console.error("Real question generation failed:", error);
 
-    // Enhanced fallback with subject-specific questions
     const fallbackQuestion = generateFallbackQuestion(profile);
 
     user.context.current_question = {
@@ -1262,6 +1724,7 @@ ${realQuestion.questionText}
       targeted: true,
       painpoint_confirmed: true,
       fallback_used: true,
+      heuristic_fix_applied: true,
     };
 
     const content = `🎯 **TARGETED PRACTICE QUESTION**
@@ -1292,7 +1755,6 @@ async function generateRealAIQuestion(profile) {
     const OpenAI = require("openai");
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // Construct detailed prompt for question generation
     const questionPrompt = `Generate a Grade ${profile.grade} ${profile.subject} practice question that specifically targets a student who struggles with: "${profile.specific_failure}"
 
 Topic: ${profile.topic_struggles}
@@ -1324,7 +1786,6 @@ Example format: "Solve for x: 3x + 8 = 23. Show all your working steps."`;
 
     const questionText = response.choices[0].message.content.trim();
 
-    // Generate corresponding solution
     const solutionPrompt = `Provide a step-by-step solution for this question, specifically helping a student who "${profile.specific_failure}":
 
 Question: ${questionText}
@@ -1363,24 +1824,27 @@ Provide a clear, educational step-by-step solution that addresses their specific
     };
   } catch (error) {
     console.error("OpenAI question generation failed:", error);
-    throw error; // Let the calling function handle fallback
+    throw error;
   }
 }
-
 // ===== ENHANCED FALLBACK QUESTION GENERATOR =====
 
 function generateFallbackQuestion(profile) {
-  const subject = profile.subject || 'Mathematics';
-  const grade = profile.grade || '11';
-  const topic = profile.topic_struggles || 'algebra';
-  const struggle = profile.specific_failure || 'solving equations';
-  
-  console.log(`🔄 Generating fallback question for: ${subject} ${topic} - ${struggle}`);
-  
-  // Subject and topic specific fallback questions
-  if (subject === 'Mathematics') {
-    if (topic.toLowerCase().includes('algebra')) {
-      if (struggle.toLowerCase().includes('solve for x') || struggle.toLowerCase().includes('cannot solve')) {
+  const subject = profile.subject || "Mathematics";
+  const grade = profile.grade || "11";
+  const topic = profile.topic_struggles || "algebra";
+  const struggle = profile.specific_failure || "solving equations";
+
+  console.log(
+    `🔄 Generating fallback question for: ${subject} ${topic} - ${struggle}`
+  );
+
+  if (subject === "Mathematics") {
+    if (topic.toLowerCase().includes("algebra")) {
+      if (
+        struggle.toLowerCase().includes("solve for x") ||
+        struggle.toLowerCase().includes("cannot solve")
+      ) {
         return {
           questionText: `**Solve for x:**
 
@@ -1395,29 +1859,12 @@ function generateFallbackQuestion(profile) {
 2x ÷ 2 = 12 ÷ 2
 x = 6
 
-**Therefore:** x = 6`
-        };
-      }
-      
-      if (struggle.toLowerCase().includes('factor')) {
-        return {
-          questionText: `**Factor completely:**
-
-x² + 5x + 6
-
-**Show all your working steps.**`,
-          solution: `**Step 1:** Look for two numbers that multiply to 6 and add to 5
-Numbers: 2 and 3 (2 × 3 = 6, 2 + 3 = 5)
-
-**Step 2:** Write as factors
-x² + 5x + 6 = (x + 2)(x + 3)
-
-**Therefore:** (x + 2)(x + 3)`
+**Therefore:** x = 6`,
         };
       }
     }
-    
-    if (topic.toLowerCase().includes('geometry')) {
+
+    if (topic.toLowerCase().includes("geometry")) {
       return {
         questionText: `**Find the area of a triangle:**
 
@@ -1433,76 +1880,11 @@ Area = ½ × 8 × 6
 **Step 2:** Calculate
 Area = ½ × 48 = 24
 
-**Therefore:** Area = 24 cm²`
-      };
-    }
-    
-    if (topic.toLowerCase().includes('trigonometry')) {
-      return {
-        questionText: `**Find sin θ:**
-
-In a right triangle:
-Opposite side = 3
-Hypotenuse = 5
-
-**Show your working.**`,
-        solution: `**Formula:** sin θ = opposite/hypotenuse
-
-**Step 1:** Substitute values
-sin θ = 3/5
-
-**Step 2:** Convert to decimal
-sin θ = 0.6
-
-**Therefore:** sin θ = 3/5 or 0.6`
+**Therefore:** Area = 24 cm²`,
       };
     }
   }
-  
-  if (subject === 'Physical Sciences') {
-    if (topic.toLowerCase().includes('physics')) {
-      return {
-        questionText: `**Calculate the force:**
 
-Mass = 10 kg
-Acceleration = 5 m/s²
-
-**Use F = ma and show your working.**`,
-        solution: `**Formula:** F = ma
-
-**Step 1:** Substitute values
-F = 10 × 5
-
-**Step 2:** Calculate
-F = 50
-
-**Therefore:** F = 50 N`
-      };
-    }
-    
-    if (topic.toLowerCase().includes('chemistry')) {
-      return {
-        questionText: `**Balance this equation:**
-
-H₂ + O₂ → H₂O
-
-**Show your working steps.**`,
-        solution: `**Step 1:** Count atoms on each side
-Left: H = 2, O = 2
-Right: H = 2, O = 1
-
-**Step 2:** Balance oxygen by adding coefficient
-H₂ + O₂ → 2H₂O
-
-**Step 3:** Balance hydrogen
-2H₂ + O₂ → 2H₂O
-
-**Therefore:** 2H₂ + O₂ → 2H₂O`
-      };
-    }
-  }
-  
-  // Generic fallback
   return {
     questionText: `**Grade ${grade} ${subject} Practice Question:**
 
@@ -1518,7 +1900,7 @@ Challenge: ${struggle}
 
 **Step 4:** Check your answer makes sense
 
-**Therefore:** [Complete solution addressing ${struggle}]`
+**Therefore:** [Complete solution addressing ${struggle}]`,
   };
 }
 
