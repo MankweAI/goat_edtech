@@ -1,8 +1,8 @@
 /**
- * GOAT Bot 2.0 - FIXED AI INTELLIGENCE + CONCISE RESPONSES
+ * GOAT Bot 2.0 - ENHANCED NAVIGATION + NUMBERED MENUS
  * User: sophoniagoat
- * Fixed: 2025-08-21 13:27:41 UTC
- * CRITICAL FIXES: Working AI analysis, short responses, proper state flow
+ * Updated: 2025-08-21 13:53:20 UTC
+ * IMPROVEMENTS: 4 numbered options, Switch Topics, visual enhancements
  */
 
 // Enhanced user state management
@@ -16,9 +16,10 @@ const GOAT_COMMANDS = {
   HOMEWORK_HELP: "homework_help",
   MEMORY_HACKS: "memory_hacks",
   FIXED_MENU_COMMAND: "fixed_menu_command",
+  NUMBERED_MENU_COMMAND: "numbered_menu_command",
 };
 
-// AI-POWERED INTELLIGENCE STATES - FIXED
+// AI-POWERED INTELLIGENCE STATES
 const AI_INTEL_STATES = {
   EXAM_OR_TEST: "ai_exam_or_test",
   SUBJECT_GRADE: "ai_subject_grade",
@@ -27,22 +28,50 @@ const AI_INTEL_STATES = {
   AI_QUESTION_GENERATION: "ai_question_generation",
 };
 
-// FIXED MENU COMMANDS
-const FIXED_MENU_COMMANDS = {
+// ENHANCED MENU COMMANDS - 4 OPTIONS MAX
+const MENU_COMMANDS = {
+  // Text commands (backward compatibility)
   CONTINUE: "continue",
   QUESTION: "question",
   SOLUTION: "solution",
   SWITCH: "switch",
   MENU: "menu",
   NEXT: "next",
+  // Numbered commands (new format)
+  OPTION_1: "1",
+  OPTION_2: "2",
+  OPTION_3: "3",
+  OPTION_4: "4",
 };
 
-// Enhanced command parser with fixed menu detection
+// Enhanced command parser with numbered menu detection
 function parseGoatCommand(message, userContext) {
   const text = message.toLowerCase().trim();
 
-  // Check for fixed menu commands first
-  if (Object.values(FIXED_MENU_COMMANDS).includes(text)) {
+  // Check for numbered menu commands (1-4)
+  if (
+    /^[1234]$/.test(text) &&
+    userContext.current_menu === "exam_prep_conversation"
+  ) {
+    return {
+      type: GOAT_COMMANDS.NUMBERED_MENU_COMMAND,
+      option: parseInt(text),
+      original_text: message,
+    };
+  }
+
+  // Check for main menu numbers (1-3)
+  if (/^[123]$/.test(text) && userContext.current_menu === "welcome") {
+    return {
+      type: GOAT_COMMANDS.MENU_CHOICE,
+      choice: parseInt(text),
+      action:
+        text === "1" ? "exam_prep" : text === "2" ? "homework" : "memory_hacks",
+    };
+  }
+
+  // Check for text-based fixed menu commands (backward compatibility)
+  if (Object.values(MENU_COMMANDS).slice(0, 6).includes(text)) {
     return {
       type: GOAT_COMMANDS.FIXED_MENU_COMMAND,
       command: text,
@@ -57,15 +86,6 @@ function parseGoatCommand(message, userContext) {
     text.includes("hello")
   ) {
     return { type: GOAT_COMMANDS.WELCOME };
-  }
-
-  if (/^[123]$/.test(text)) {
-    return {
-      type: GOAT_COMMANDS.MENU_CHOICE,
-      choice: parseInt(text),
-      action:
-        text === "1" ? "exam_prep" : text === "2" ? "homework" : "memory_hacks",
-    };
   }
 
   const currentMenu = userContext.current_menu || "welcome";
@@ -105,7 +125,7 @@ function formatGoatResponse(message, metadata = {}) {
 module.exports = async (req, res) => {
   const start = Date.now();
 
-  console.log("🔧 GOAT Bot v2.0 - FIXED AI INTELLIGENCE + CONCISE RESPONSES");
+  console.log("🔥 GOAT Bot v2.0 - ENHANCED NAVIGATION + NUMBERED MENUS");
 
   const { query } = req;
   const endpoint = query.endpoint || "webhook";
@@ -146,10 +166,10 @@ async function handleWebhook(req, res, start) {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
-      webhook: "GOAT Bot - FIXED AI + CONCISE RESPONSES",
+      webhook: "GOAT Bot - ENHANCED NAVIGATION SYSTEM",
       status: "Active",
-      system: "Working AI intelligence with short, focused responses",
-      fixed: "AI analysis functions, state management, concise communication",
+      features: "4 numbered options, Switch Topics, visual enhancements",
+      navigation: "1. Solution 2. Next Question 3. Switch Topics 4. Main Menu",
     });
   }
 
@@ -181,6 +201,7 @@ async function handleWebhook(req, res, start) {
     context: {},
     painpoint_profile: {},
     conversation_history: [],
+    preferences: { last_subject: null, last_grade: null },
     last_active: new Date().toISOString(),
   };
 
@@ -199,6 +220,7 @@ async function handleWebhook(req, res, start) {
   console.log(`🎯 Command parsed: ${command.type}`, {
     action: command.action,
     choice: command.choice,
+    option: command.option,
     command: command.command,
     text: command.text?.substring(0, 30),
   });
@@ -206,7 +228,12 @@ async function handleWebhook(req, res, start) {
   let reply = "";
 
   switch (command.type) {
-    // ===== FIXED MENU COMMANDS =====
+    // ===== NUMBERED MENU COMMANDS (NEW) =====
+    case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
+      reply = await handleNumberedMenuCommand(user, command.option);
+      break;
+
+    // ===== FIXED MENU COMMANDS (BACKWARD COMPATIBILITY) =====
     case GOAT_COMMANDS.FIXED_MENU_COMMAND:
       reply = await handleFixedMenuCommand(user, command.command);
       break;
@@ -245,18 +272,18 @@ async function handleWebhook(req, res, start) {
       break;
   }
 
-  // Enhanced conversation tracking with debugging
+  // Enhanced conversation tracking with preferences
   user.conversation_history.push({
     user_input: message,
     bot_response: reply.substring(0, 100),
     timestamp: new Date().toISOString(),
     command_type: command.type,
     ai_intel_state: user.context.ai_intel_state,
-    painpoint_profile: user.context.painpoint_profile || {},
+    menu_option_used: command.option || command.command || null,
   });
 
-  if (user.conversation_history.length > 10) {
-    user.conversation_history = user.conversation_history.slice(-10);
+  if (user.conversation_history.length > 15) {
+    user.conversation_history = user.conversation_history.slice(-15);
   }
 
   user.last_active = new Date().toISOString();
@@ -265,7 +292,7 @@ async function handleWebhook(req, res, start) {
   console.log(
     `✅ Reply: ${reply.length} chars | State: ${
       user.context.ai_intel_state
-    } | Profile: ${JSON.stringify(user.context.painpoint_profile)}`
+    } | Option: ${command.option || command.command || "none"}`
   );
 
   return res.status(200).json(
@@ -274,90 +301,263 @@ async function handleWebhook(req, res, start) {
       command_type: command.type,
       current_menu: user.current_menu,
       ai_intel_state: user.context.ai_intel_state,
-      debug_mode: true,
+      enhanced_navigation: true,
       elapsed_ms: Date.now() - start,
     })
   );
 }
 
-// ===== FIXED MENU COMMAND HANDLER =====
+// ===== ENHANCED NUMBERED MENU HANDLER =====
 
-async function handleFixedMenuCommand(user, command) {
+async function handleNumberedMenuCommand(user, option) {
   console.log(
-    `🔧 Fixed menu command: ${command} | Context: ${user.context.ai_intel_state}`
+    `🔢 Numbered menu option: ${option} | Context: ${user.context.ai_intel_state}`
   );
 
-  switch (command) {
-    case FIXED_MENU_COMMANDS.CONTINUE:
-      return await handleContinueCommand(user);
-    case FIXED_MENU_COMMANDS.QUESTION:
-      return await handleQuestionCommand(user);
-    case FIXED_MENU_COMMANDS.SOLUTION:
-      return await handleSolutionCommand(user);
-    case FIXED_MENU_COMMANDS.SWITCH:
-      return await handleSwitchCommand(user);
-    case FIXED_MENU_COMMANDS.MENU:
-      return await showWelcomeMenu(user);
-    case FIXED_MENU_COMMANDS.NEXT:
-      return await handleNextCommand(user);
+  const currentState = user.context.ai_intel_state;
+
+  // Context-aware menu options
+  switch (currentState) {
+    case AI_INTEL_STATES.AI_QUESTION_GENERATION:
+      // Menu after practice question delivery
+      switch (option) {
+        case 1:
+          return await handleSolutionCommand(user); // 1. Solution
+        case 2:
+          return await handleNextCommand(user); // 2. Next Question
+        case 3:
+          return await handleSwitchTopicsCommand(user); // 3. Switch Topics
+        case 4:
+          return await showWelcomeMenu(user); // 4. Main Menu
+        default:
+          return getContextualMenuError(currentState);
+      }
+
+    case AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION:
+    case AI_INTEL_STATES.AI_MICRO_TARGETING:
+      // Menu during intelligence gathering
+      switch (option) {
+        case 1:
+          return await handleContinueCommand(user); // 1. Continue
+        case 2:
+          return await handleQuestionCommand(user); // 2. Skip to Question
+        case 3:
+          return await handleSwitchTopicsCommand(user); // 3. Switch Topics
+        case 4:
+          return await showWelcomeMenu(user); // 4. Main Menu
+        default:
+          return getContextualMenuError(currentState);
+      }
+
     default:
-      return `Type 'continue', 'question', or 'menu'`;
+      // Fallback menu
+      switch (option) {
+        case 1:
+          return await handleContinueCommand(user);
+        case 2:
+          return await handleQuestionCommand(user);
+        case 3:
+          return await handleSwitchTopicsCommand(user);
+        case 4:
+          return await showWelcomeMenu(user);
+        default:
+          return getGenericMenuError();
+      }
   }
 }
 
-async function handleContinueCommand(user) {
-  if (user.context.ai_intel_state === AI_INTEL_STATES.AI_QUESTION_GENERATION) {
+// ===== ENHANCED MENU OPTION HANDLERS =====
+
+async function handleSolutionCommand(user) {
+  if (user.context.current_question) {
+    return await showAITargetedSolution(user);
+  }
+  return `No question active. 
+
+${generateContextualMenu(user.context.ai_intel_state, "no_question")}`;
+}
+
+async function handleNextCommand(user) {
+  const currentState = user.context.ai_intel_state;
+
+  if (currentState === AI_INTEL_STATES.AI_QUESTION_GENERATION) {
     return await generateAITargetedQuestion(user);
   }
 
-  return `What else is challenging you?`;
+  return `Next step coming up!
+
+${generateContextualMenu(currentState, "next_step")}`;
+}
+
+async function handleSwitchTopicsCommand(user) {
+  // Save current preferences before switching
+  if (user.context.painpoint_profile?.subject) {
+    user.preferences.last_subject = user.context.painpoint_profile.subject;
+  }
+  if (user.context.painpoint_profile?.grade) {
+    user.preferences.last_grade = user.context.painpoint_profile.grade;
+  }
+
+  // Reset to topic selection
+  user.context = {};
+  user.painpoint_profile = {};
+  user.current_menu = "exam_prep_conversation";
+  user.context.ai_intel_state = AI_INTEL_STATES.SUBJECT_GRADE;
+
+  const smartDefault = user.preferences.last_subject
+    ? `\n\n(Last time: ${user.preferences.last_subject} Grade ${
+        user.preferences.last_grade || "10"
+      })`
+    : "";
+
+  return `🔄 **Switching Topics!**
+
+What subject and grade?${smartDefault}
+
+${generateContextualMenu(AI_INTEL_STATES.SUBJECT_GRADE, "topic_switch")}`;
+}
+
+async function handleContinueCommand(user) {
+  const currentState = user.context.ai_intel_state;
+
+  if (currentState === AI_INTEL_STATES.AI_QUESTION_GENERATION) {
+    return await generateAITargetedQuestion(user);
+  }
+
+  return `Let's continue exploring your ${
+    user.context.painpoint_profile?.subject || "subject"
+  } challenges.
+
+What else is troubling you?`;
 }
 
 async function handleQuestionCommand(user) {
   const profile = user.context.painpoint_profile;
 
-  if (!profile.subject) {
+  if (!profile?.subject) {
     user.current_menu = "exam_prep_conversation";
     user.context.ai_intel_state = AI_INTEL_STATES.SUBJECT_GRADE;
-    return `What subject and grade? (e.g., "Grade 11 Maths")`;
+
+    return `📝 **Quick Question Mode**
+
+What subject and grade? (e.g., "Grade 11 Maths")
+
+${generateContextualMenu(AI_INTEL_STATES.SUBJECT_GRADE, "quick_question")}`;
   }
 
   user.context.ai_intel_state = AI_INTEL_STATES.AI_QUESTION_GENERATION;
   return await generateAITargetedQuestion(user);
 }
 
-async function handleSolutionCommand(user) {
-  if (user.context.current_question) {
-    return await showAITargetedSolution(user);
+// ===== BACKWARD COMPATIBILITY HANDLER =====
+
+async function handleFixedMenuCommand(user, command) {
+  console.log(
+    `🔧 Text command: ${command} | Context: ${user.context.ai_intel_state}`
+  );
+
+  switch (command) {
+    case "solution":
+      return await handleSolutionCommand(user);
+    case "next":
+      return await handleNextCommand(user);
+    case "switch":
+      return await handleSwitchTopicsCommand(user);
+    case "continue":
+      return await handleContinueCommand(user);
+    case "question":
+      return await handleQuestionCommand(user);
+    case "menu":
+      return await showWelcomeMenu(user);
+    default:
+      return `Try: 1, 2, 3, or 4`;
   }
-  return `No question active. Type 'question' first.`;
 }
 
-async function handleSwitchCommand(user) {
-  user.context = {};
-  user.painpoint_profile = {};
-  user.current_menu = "exam_prep_conversation";
-  user.context.ai_intel_state = AI_INTEL_STATES.SUBJECT_GRADE;
-  return `New topic! What subject and grade?`;
+// ===== CONTEXTUAL MENU GENERATION =====
+
+function generateContextualMenu(aiState, context = "default") {
+  switch (aiState) {
+    case AI_INTEL_STATES.AI_QUESTION_GENERATION:
+      return `📋 **Options:**
+1️⃣ 📚 Solution
+2️⃣ ➡️ Next Question  
+3️⃣ 🔄 Switch Topics
+4️⃣ 🏠 Main Menu`;
+
+    case AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION:
+    case AI_INTEL_STATES.AI_MICRO_TARGETING:
+      return `📋 **Options:**
+1️⃣ ➡️ Continue
+2️⃣ 📝 Skip to Question
+3️⃣ 🔄 Switch Topics  
+4️⃣ 🏠 Main Menu`;
+
+    case AI_INTEL_STATES.SUBJECT_GRADE:
+      return `📋 **Options:**
+1️⃣ ➡️ Continue Setup
+2️⃣ 📝 Quick Question
+3️⃣ 🔄 Different Subject
+4️⃣ 🏠 Main Menu`;
+
+    default:
+      return `📋 **Options:**
+1️⃣ ➡️ Continue
+2️⃣ 📝 Practice Question
+3️⃣ 🔄 Switch Topics
+4️⃣ 🏠 Main Menu`;
+  }
 }
 
-async function handleNextCommand(user) {
-  if (user.context.ai_intel_state === AI_INTEL_STATES.AI_QUESTION_GENERATION) {
-    return await generateAITargetedQuestion(user);
+function getContextualMenuError(aiState) {
+  return `Please choose 1, 2, 3, or 4:
+
+${generateContextualMenu(aiState, "error")}`;
+}
+
+function getGenericMenuError() {
+  return `Please choose an option (1-4):
+
+📋 **Options:**
+1️⃣ ➡️ Continue  
+2️⃣ 📝 Practice Question
+3️⃣ 🔄 Switch Topics
+4️⃣ 🏠 Main Menu`;
+}
+
+// ===== PROGRESS INDICATORS =====
+
+function getProgressIndicator(aiState) {
+  switch (aiState) {
+    case AI_INTEL_STATES.EXAM_OR_TEST:
+      return "📍 Step 1/4: Assessment Type";
+    case AI_INTEL_STATES.SUBJECT_GRADE:
+      return "📍 Step 2/4: Subject & Grade";
+    case AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION:
+      return "📍 Step 3/4: Finding Struggles";
+    case AI_INTEL_STATES.AI_MICRO_TARGETING:
+      return "📍 Step 4/4: Precision Targeting";
+    case AI_INTEL_STATES.AI_QUESTION_GENERATION:
+      return "🎯 Practice Mode Active";
+    default:
+      return "";
   }
-  return `Type 'question' for practice or 'continue' to explore more.`;
 }
 
 // ===== CORE HANDLER FUNCTIONS =====
 
 async function showWelcomeMenu(user) {
-  console.log(`🏠 Welcome menu for user ${user.id}`);
+  console.log(`🏠 Enhanced welcome menu for user ${user.id}`);
 
   user.current_menu = "welcome";
   user.context = {};
   user.painpoint_profile = {};
 
-  return `Welcome to The GOAT. I'm here help you study with calm and clarity.
+  const welcomeBack = user.preferences.last_subject
+    ? `\n\n👋 Welcome back! Ready to continue with ${user.preferences.last_subject}?`
+    : "";
+
+  return `Welcome to The GOAT. I'm here help you study with calm and clarity.${welcomeBack}
 
 What do you need right now?
 
@@ -368,10 +568,10 @@ What do you need right now?
 Just pick a number! ✨`;
 }
 
-// ===== FIXED AI-POWERED INTELLIGENCE FUNCTIONS =====
+// ===== AI-POWERED INTELLIGENCE FUNCTIONS (ENHANCED) =====
 
 async function startAIIntelligenceGathering(user) {
-  console.log(`🤖 Starting FIXED AI intelligence for user ${user.id}`);
+  console.log(`🤖 Starting enhanced AI intelligence for user ${user.id}`);
 
   user.current_menu = "exam_prep_conversation";
   user.context = {
@@ -381,6 +581,8 @@ async function startAIIntelligenceGathering(user) {
 
   return `📅 **Exam/Test Prep Mode Activated!** 😰➡️😎
 
+${getProgressIndicator(AI_INTEL_STATES.EXAM_OR_TEST)}
+
 Exam or test stress? I'll generate questions to unstuck you!
 
 First - is this an EXAM or TEST? (Different question styles!)`;
@@ -388,7 +590,7 @@ First - is this an EXAM or TEST? (Different question styles!)`;
 
 async function handleAIIntelligenceGathering(user, text) {
   console.log(
-    `🤖 FIXED AI Intelligence: ${user.context.ai_intel_state} | Input: "${text}"`
+    `🤖 Enhanced AI Intelligence: ${user.context.ai_intel_state} | Input: "${text}"`
   );
 
   const aiIntelState =
@@ -400,7 +602,7 @@ async function handleAIIntelligenceGathering(user, text) {
   }
 
   switch (aiIntelState) {
-    // ===== FIXED EXAM OR TEST ANALYSIS =====
+    // ===== ENHANCED EXAM OR TEST ANALYSIS =====
     case AI_INTEL_STATES.EXAM_OR_TEST:
       const examAnalysis = await analyzeExamTestResponseFixed(text);
       user.context.painpoint_profile.assessment_type =
@@ -411,28 +613,40 @@ async function handleAIIntelligenceGathering(user, text) {
 
       return `Perfect! ${examAnalysis.assessment_type.toUpperCase()}s need focused prep.
 
+${getProgressIndicator(AI_INTEL_STATES.SUBJECT_GRADE)}
+
 What subject and grade?
 
 (Example: "Grade 11 Maths" or "Physical Sciences Grade 10")`;
 
-    // ===== FIXED SUBJECT/GRADE ANALYSIS =====
+    // ===== ENHANCED SUBJECT/GRADE ANALYSIS =====
     case AI_INTEL_STATES.SUBJECT_GRADE:
       const subjectAnalysis = await analyzeSubjectGradeResponseFixed(text);
       user.context.painpoint_profile.subject = subjectAnalysis.subject;
       user.context.painpoint_profile.grade = subjectAnalysis.grade;
       user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION;
 
+      // Save preferences
+      user.preferences.last_subject = subjectAnalysis.subject;
+      user.preferences.last_grade = subjectAnalysis.grade;
+
       console.log(
         `✅ Subject analysis: ${subjectAnalysis.subject} Grade ${subjectAnalysis.grade}`
       );
 
-      return `Grade ${subjectAnalysis.grade} ${subjectAnalysis.subject} ${user.context.painpoint_profile.assessment_type}!
+      return `Grade ${subjectAnalysis.grade} ${subjectAnalysis.subject} ${
+        user.context.painpoint_profile.assessment_type
+      }!
+
+${getProgressIndicator(AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION)}
 
 Which topics are nightmares?
 
-(Be specific - Algebra? Geometry? Trigonometry?)`;
+(Be specific - Algebra? Geometry? Trigonometry?)
 
-    // ===== FIXED PAINPOINT EXCAVATION =====
+${generateContextualMenu(AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION)}`;
+
+    // ===== ENHANCED PAINPOINT EXCAVATION =====
     case AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION:
       const painpointAnalysis = await analyzePainpointResponseFixed(
         text,
@@ -443,12 +657,18 @@ Which topics are nightmares?
 
       console.log(`✅ Painpoint analysis: ${painpointAnalysis.topics}`);
 
-      return await generateMicroTargetingFixed(
+      const microQuestion = await generateMicroTargetingFixed(
         text,
         user.context.painpoint_profile
       );
 
-    // ===== FIXED MICRO TARGETING =====
+      return `${microQuestion}
+
+${getProgressIndicator(AI_INTEL_STATES.AI_MICRO_TARGETING)}
+
+${generateContextualMenu(AI_INTEL_STATES.AI_MICRO_TARGETING)}`;
+
+    // ===== ENHANCED MICRO TARGETING =====
     case AI_INTEL_STATES.AI_MICRO_TARGETING:
       const microAnalysis = await analyzeMicroTargetingFixed(
         text,
@@ -462,13 +682,13 @@ Which topics are nightmares?
 
       console.log(`✅ Micro analysis: ${microAnalysis.failure_mode}`);
       console.log(
-        `🎯 PAINPOINT PROFILE COMPLETE:`,
+        `🎯 ENHANCED PAINPOINT PROFILE COMPLETE:`,
         user.context.painpoint_profile
       );
 
       return await generateAITargetedQuestion(user);
 
-    // ===== QUESTION INTERACTION =====
+    // ===== ENHANCED QUESTION INTERACTION =====
     case AI_INTEL_STATES.AI_QUESTION_GENERATION:
       return await handleAIQuestionInteractionFixed(user, text);
 
@@ -478,13 +698,12 @@ Which topics are nightmares?
   }
 }
 
-// ===== FIXED AI ANALYSIS FUNCTIONS - SHORT AND RELIABLE =====
+// ===== KEEP EXISTING AI ANALYSIS FUNCTIONS =====
 
 async function analyzeExamTestResponseFixed(userInput) {
   const text = userInput.toLowerCase();
 
   try {
-    // Try AI analysis first
     const OpenAI = require("openai");
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -501,30 +720,23 @@ async function analyzeExamTestResponseFixed(userInput) {
     });
 
     const aiResult = response.choices[0].message.content.toLowerCase().trim();
-    if (aiResult.includes("exam")) {
-      return { assessment_type: "exam" };
-    }
-    if (aiResult.includes("test")) {
-      return { assessment_type: "test" };
-    }
+    if (aiResult.includes("exam")) return { assessment_type: "exam" };
+    if (aiResult.includes("test")) return { assessment_type: "test" };
   } catch (error) {
     console.warn("AI analysis failed, using fallback:", error.message);
   }
 
-  // Reliable fallback
   if (text.includes("exam")) return { assessment_type: "exam" };
   if (text.includes("test")) return { assessment_type: "test" };
-  return { assessment_type: "test" }; // Default to test
+  return { assessment_type: "test" };
 }
 
 async function analyzeSubjectGradeResponseFixed(userInput) {
   const text = userInput.toLowerCase();
 
-  // Extract grade
   const gradeMatch = text.match(/grade\s*(\d+)/i) || text.match(/(\d+)/);
   const grade = gradeMatch ? gradeMatch[1] : "10";
 
-  // Extract subject with reliable fallbacks
   let subject = "Mathematics";
   if (text.includes("math")) subject = "Mathematics";
   if (text.includes("physics") || text.includes("physical"))
@@ -536,13 +748,13 @@ async function analyzeSubjectGradeResponseFixed(userInput) {
   if (text.includes("history")) subject = "History";
   if (text.includes("geography")) subject = "Geography";
 
-  console.log(`📊 Subject/Grade extracted: ${subject} Grade ${grade}`);
+  console.log(`📊 Enhanced Subject/Grade: ${subject} Grade ${grade}`);
   return { subject, grade };
 }
 
 async function analyzePainpointResponseFixed(userInput, profile) {
   const topics = userInput.trim();
-  console.log(`📊 Painpoint topics: ${topics}`);
+  console.log(`📊 Enhanced Painpoint: ${topics}`);
   return { topics };
 }
 
@@ -550,7 +762,6 @@ async function generateMicroTargetingFixed(topicInput, profile) {
   const topic = topicInput.toLowerCase();
 
   try {
-    // Try AI generation
     const OpenAI = require("openai");
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -559,10 +770,10 @@ async function generateMicroTargetingFixed(topicInput, profile) {
       messages: [
         {
           role: "user",
-          content: `Student struggles with ${topicInput} in ${profile.subject}. Ask 1 short specific question about where they get stuck. Max 30 words.`,
+          content: `Student struggles with ${topicInput} in ${profile.subject}. Ask 1 short specific question about where they get stuck. Max 25 words.`,
         },
       ],
-      max_tokens: 50,
+      max_tokens: 40,
       temperature: 0.4,
     });
 
@@ -571,16 +782,15 @@ async function generateMicroTargetingFixed(topicInput, profile) {
     console.warn("AI micro-targeting failed, using fallback:", error.message);
   }
 
-  // Subject-specific fallbacks
   if (profile.subject === "Mathematics") {
     if (topic.includes("factor")) {
-      return `Factoring issues! Where exactly? Recognizing patterns? Trinomials? Difference of squares?`;
+      return `Factoring troubles! Where exactly? Recognizing patterns? Trinomials? Difference of squares?`;
     }
     if (topic.includes("algebra")) {
-      return `Algebra troubles! What part? Solving equations? Simplifying expressions? Word problems?`;
+      return `Algebra struggles! What part? Solving equations? Simplifying? Word problems?`;
     }
     if (topic.includes("trig")) {
-      return `Trigonometry chaos! Which bit? Ratios? Equations? Graphs? Unit circle?`;
+      return `Trigonometry issues! Which bit? Ratios? Equations? Graphs? Unit circle?`;
     }
   }
 
@@ -590,7 +800,6 @@ async function generateMicroTargetingFixed(topicInput, profile) {
 async function analyzeMicroTargetingFixed(userInput, profile) {
   const text = userInput.toLowerCase();
 
-  // Determine confidence level
   let confidence = "medium";
   if (
     text.includes("no clue") ||
@@ -602,7 +811,6 @@ async function analyzeMicroTargetingFixed(userInput, profile) {
     confidence = "advanced";
   }
 
-  // Extract failure mode
   let failure_mode = "general_difficulty";
   if (text.includes("formula") || text.includes("method")) {
     failure_mode = "method_selection";
@@ -612,17 +820,16 @@ async function analyzeMicroTargetingFixed(userInput, profile) {
     failure_mode = "calculation_errors";
   }
 
-  console.log(`📊 Micro analysis: ${failure_mode}, confidence: ${confidence}`);
+  console.log(`📊 Enhanced Micro: ${failure_mode}, confidence: ${confidence}`);
   return { failure_mode, confidence };
 }
 
 async function generateAITargetedQuestion(user) {
   const profile = user.context.painpoint_profile;
 
-  console.log(`🎯 Generating question for profile:`, profile);
+  console.log(`🎯 Enhanced question generation:`, profile);
 
   try {
-    // Call mock exam API with painpoint targeting
     const apiUrl = `https://goat-edtech.vercel.app/api/index?endpoint=mock-exam&grade=${
       profile.grade
     }&subject=${encodeURIComponent(
@@ -640,35 +847,33 @@ async function generateAITargetedQuestion(user) {
 
     return `🎯 **${profile.topic_struggles.toUpperCase()} PRACTICE**
 
+${getProgressIndicator(AI_INTEL_STATES.AI_QUESTION_GENERATION)}
+
 📝 **Question:**
 ${
   data.mockExam?.[0]?.questionText ||
   `Grade ${profile.grade} ${profile.subject} question on ${profile.topic_struggles}`
 }
 
-• Type 'solution' for step-by-step help
-• Type 'next' for another question  
-• Type 'menu' for main options`;
+${generateContextualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION)}`;
   } catch (error) {
-    console.error("Question generation failed:", error);
+    console.error("Enhanced question generation failed:", error);
 
-    // Fallback question
     user.context.current_question = {
       questionText: `Grade ${profile.grade} ${profile.subject} practice question on ${profile.topic_struggles}`,
-      solution:
-        "Step-by-step solution will be provided when you type 'solution'",
+      solution: "Step-by-step solution will be provided",
     };
 
     return `🎯 **${profile.topic_struggles.toUpperCase()} PRACTICE**
+
+${getProgressIndicator(AI_INTEL_STATES.AI_QUESTION_GENERATION)}
 
 📝 **Question:**
 Grade ${profile.grade} ${profile.subject} practice question on ${
       profile.topic_struggles
     }
 
-• Type 'solution' for step-by-step help
-• Type 'next' for another question  
-• Type 'menu' for main options`;
+${generateContextualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION)}`;
   }
 }
 
@@ -685,12 +890,9 @@ async function handleAIQuestionInteractionFixed(user, text) {
     return await showWelcomeMenu(user);
   }
 
-  // Handle unexpected responses
   return `I see: "${text}"
 
-• Type 'solution' for the answer
-• Type 'next' for another question
-• Type 'menu' for main options`;
+${generateContextualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION)}`;
 }
 
 async function showAITargetedSolution(user) {
@@ -698,7 +900,6 @@ async function showAITargetedSolution(user) {
   const question = user.context.current_question;
 
   try {
-    // Try AI-generated solution
     const OpenAI = require("openai");
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -726,29 +927,23 @@ async function showAITargetedSolution(user) {
 
 ${solution}
 
-**Strategy:** Focus on ${profile.specific_failure || "your weak areas"}
+**🎯 Strategy:** Focus on ${profile.specific_failure || "your weak areas"}
 
-• Type 'next' for another question
-• Type 'continue' to explore more  
-• Type 'menu' for main options`;
+${generateContextualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION)}`;
   } catch (error) {
-    console.error("Solution generation failed:", error);
+    console.error("Enhanced solution generation failed:", error);
 
     return `📚 **SOLUTION**
 
 Step-by-step solution for your ${profile.topic_struggles} practice question.
 
-**Strategy:** Target your specific struggle with ${
-      profile.specific_failure || "method selection"
-    }
+**🎯 Strategy:** Target ${profile.specific_failure || "method selection"}
 
-• Type 'next' for another question
-• Type 'continue' to explore more  
-• Type 'menu' for main options`;
+${generateContextualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION)}`;
   }
 }
 
-// ===== HOMEWORK AND MEMORY HACKS (KEEP EXISTING) =====
+// ===== HOMEWORK AND MEMORY HACKS (KEEP EXISTING WITH ENHANCEMENTS) =====
 
 async function startHomeworkHelp(user) {
   user.current_menu = "homework_active";
@@ -766,7 +961,7 @@ Go ahead! 📝`;
 }
 
 async function handleHomeworkHelp(user, text) {
-  console.log(`📝 Homework: ${text.substring(0, 50)}`);
+  console.log(`📝 Enhanced Homework: ${text.substring(0, 50)}`);
 
   try {
     const response = await fetch(
@@ -776,8 +971,8 @@ async function handleHomeworkHelp(user, text) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           problemText: text,
-          grade: 10,
-          subject: "Mathematics",
+          grade: user.preferences.last_grade || 10,
+          subject: user.preferences.last_subject || "Mathematics",
           similarCount: 1,
         }),
       }
@@ -791,15 +986,21 @@ async function handleHomeworkHelp(user, text) {
 
 **Answer:** ${data.homework?.solution || "Working on your solution..."}
 
-• Type 'next' for another problem
-• Type 'menu' for main options`;
+📋 **Options:**
+1️⃣ ➡️ Another Problem
+2️⃣ 📝 Practice Questions
+3️⃣ 🔄 Different Subject
+4️⃣ 🏠 Main Menu`;
   } catch (error) {
     return `📚 Working on: "${text}"
 
 Solution coming up...
 
-• Type 'continue' to try again
-• Type 'menu' to go back`;
+📋 **Options:**
+1️⃣ ➡️ Try Again
+2️⃣ 📝 Different Problem  
+3️⃣ 🔄 Switch Subject
+4️⃣ 🏠 Main Menu`;
   }
 }
 
@@ -819,7 +1020,7 @@ What subject? (Math, Science, English, etc.)`;
 }
 
 async function handleMemoryHacksFlow(user, text) {
-  console.log(`🧠 Memory hacks: ${text.substring(0, 50)}`);
+  console.log(`🧠 Enhanced Memory hacks: ${text.substring(0, 50)}`);
 
   let subject = "Mathematics";
   if (text.toLowerCase().includes("science")) subject = "Physical Sciences";
@@ -834,7 +1035,7 @@ async function handleMemoryHacksFlow(user, text) {
         body: JSON.stringify({
           subject: subject,
           topic: "general",
-          grade: 10,
+          grade: user.preferences.last_grade || 10,
           count: 1,
         }),
       }
@@ -852,16 +1053,21 @@ async function handleMemoryHacksFlow(user, text) {
       "Using local landmarks and culture to remember key concepts"
     }
 
-• Type 'next' for more hacks
-• Type 'switch' for different subject
-• Type 'menu' for main options`;
+📋 **Options:**
+1️⃣ ➡️ More Hacks
+2️⃣ 📝 Practice Questions
+3️⃣ 🔄 Different Subject  
+4️⃣ 🏠 Main Menu`;
   } catch (error) {
     return `🧠 Creating ${subject} memory hacks...
 
 SA-specific tricks coming up!
 
-• Type 'continue' for more
-• Type 'menu' to go back`;
+📋 **Options:**
+1️⃣ ➡️ Continue
+2️⃣ 📝 Try Different Topic
+3️⃣ 🔄 Switch Subject
+4️⃣ 🏠 Main Menu`;
   }
 }
 
@@ -907,14 +1113,14 @@ Make it CAPS-aligned and concise.`;
         },
       ],
       metadata: {
-        fixed: true,
-        concise: true,
+        enhanced: true,
+        navigation: "4 numbered options",
         tokensUsed: response.usage?.total_tokens || 0,
       },
     });
   } catch (error) {
     return res.status(500).json({
-      error: "Question generation failed",
+      error: "Enhanced question generation failed",
       message: error.message,
       timestamp: new Date().toISOString(),
     });
@@ -953,16 +1159,17 @@ async function handleHomeworkOCR(req, res, start) {
       homework: {
         originalProblem: problemText,
         solution: response.choices[0].message.content,
-        processed: "Fixed AI solution",
+        processed: "Enhanced AI solution with navigation",
       },
       metadata: {
-        fixed: true,
+        enhanced: true,
+        navigation: "4 numbered options",
         tokensUsed: response.usage?.total_tokens || 0,
       },
     });
   } catch (error) {
     return res.status(500).json({
-      error: "Homework processing failed",
+      error: "Enhanced homework processing failed",
       message: error.message,
       timestamp: new Date().toISOString(),
     });
@@ -1003,14 +1210,14 @@ async function handleMemoryHacks(req, res, start) {
         ],
       },
       metadata: {
-        fixed: true,
-        concise: true,
+        enhanced: true,
+        navigation: "4 numbered options",
         tokensUsed: response.usage?.total_tokens || 0,
       },
     });
   } catch (error) {
     return res.status(500).json({
-      error: "Memory hack generation failed",
+      error: "Enhanced memory hack generation failed",
       message: error.message,
       timestamp: new Date().toISOString(),
     });
@@ -1022,8 +1229,8 @@ async function handleDatabaseTest(req, res, start) {
     timestamp: new Date().toISOString(),
     user: "sophoniagoat",
     database: {
-      status: "simulated - fixed system",
-      message: "Database functionality with concise responses",
+      status: "simulated - enhanced system",
+      message: "Database with 4-option navigation and user preferences",
     },
   });
 }
@@ -1035,7 +1242,9 @@ async function handleOpenAITest(req, res, start) {
 
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: "Test fixed GOAT system" }],
+      messages: [
+        { role: "user", content: "Test enhanced GOAT navigation system" },
+      ],
       max_tokens: 20,
     });
 
@@ -1043,15 +1252,16 @@ async function handleOpenAITest(req, res, start) {
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
       openai: {
-        status: "FIXED SYSTEM ACTIVE",
+        status: "ENHANCED NAVIGATION SYSTEM ACTIVE",
         model: "gpt-3.5-turbo",
+        features: "4 numbered options, Switch Topics, progress indicators",
         test_response: response.choices[0].message.content,
         tokensUsed: response.usage?.total_tokens || 0,
       },
     });
   } catch (error) {
     return res.status(500).json({
-      error: "OpenAI test failed",
+      error: "Enhanced OpenAI test failed",
       message: error.message,
       timestamp: new Date().toISOString(),
     });
