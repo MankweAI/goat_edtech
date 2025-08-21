@@ -1002,21 +1002,83 @@ async function handleFixedMicroTargeting(user, text) {
 async function analyzeEnhancedPainpointClarity(userResponse, profile) {
   const response = userResponse.toLowerCase().trim();
 
-  console.log(`🔍 Enhanced heuristic analysis for: "${userResponse}"`);
+  console.log(`🔍 FINAL Enhanced analysis for: "${userResponse}"`);
 
-  // Enhanced specific mathematical struggle indicators
-  const specific_math_indicators = [
+  // ===== SUBJECT-SPECIFIC CLEAR INDICATORS (NEW) =====
+
+  // TRIGONOMETRY SPECIFIC CLEAR INDICATORS
+  const trig_clear_indicators = [
+    "don't understand ratios",
+    "can't understand ratios",
+    "ratios confuse me",
+    "don't know sin cos tan",
+    "can't remember which ratio",
+    "ratios are hard",
+    "don't get ratios",
+    "struggle with ratios",
+    "ratios don't make sense",
+    "don't understand sin",
+    "don't understand cos",
+    "don't understand tan",
+    "can't do sine",
+    "can't do cosine",
+    "can't do tangent",
+    "unit circle confuses me",
+    "don't understand unit circle",
+    "trig identities confuse me",
+    "don't understand identities",
+    "can't solve trig equations",
+    "trig graphs confuse me",
+  ];
+
+  // ALGEBRA SPECIFIC CLEAR INDICATORS
+  const algebra_clear_indicators = [
     "solve for x",
     "cannot solve",
     "can't solve",
     "solving equations",
+    "don't know how to solve",
+    "can't find x",
+    "x confuses me",
     "factoring",
+    "can't factor",
+    "don't understand factoring",
     "expanding",
+    "can't expand",
+    "don't know how to expand",
     "simplifying",
+    "can't simplify",
+    "don't know how to simplify",
     "substitution",
+    "can't substitute",
+    "don't understand substitution",
     "don't know which formula",
     "which method",
     "what steps",
+  ];
+
+  // GEOMETRY SPECIFIC CLEAR INDICATORS
+  const geometry_clear_indicators = [
+    "can't visualize",
+    "don't understand shapes",
+    "can't see the triangle",
+    "forget which formula",
+    "don't know the formula",
+    "area formula",
+    "perimeter formula",
+    "can't calculate area",
+    "can't find area",
+    "struggle with proofs",
+    "don't understand proofs",
+    "proofs confuse me",
+    "coordinates confuse me",
+    "don't understand coordinates",
+    "can't plot points",
+    "graphs confuse me",
+  ];
+
+  // GENERAL MATHEMATICAL CLEAR INDICATORS
+  const general_math_clear_indicators = [
     "get confused when",
     "stuck on",
     "problem with",
@@ -1024,23 +1086,115 @@ async function analyzeEnhancedPainpointClarity(userResponse, profile) {
     "don't understand how to",
     "can't figure out",
     "lost when",
+    "don't know where to start",
+    "can't remember the steps",
+    "make calculation mistakes",
+    "get the wrong answer",
   ];
 
-  const hasSpecificMathStruggle = specific_math_indicators.some((indicator) =>
-    response.includes(indicator)
+  // ===== CHECK FOR SUBJECT-SPECIFIC CLARITY =====
+
+  const topic = profile.topic_struggles?.toLowerCase() || "";
+
+  // Check trigonometry specific indicators
+  if (topic.includes("trig")) {
+    const hasTrigClarity = trig_clear_indicators.some((indicator) =>
+      response.includes(indicator)
+    );
+
+    if (hasTrigClarity) {
+      console.log(`✅ TRIGONOMETRY CLEAR painpoint detected: ${userResponse}`);
+      return {
+        clarity_level: "clear",
+        specific_struggle: userResponse,
+        needs_more_probing: false,
+        recognition_reason: "trigonometry_specific_clear_indicator",
+      };
+    }
+  }
+
+  // Check algebra specific indicators
+  if (topic.includes("algebra")) {
+    const hasAlgebraClarity = algebra_clear_indicators.some((indicator) =>
+      response.includes(indicator)
+    );
+
+    if (hasAlgebraClarity) {
+      console.log(`✅ ALGEBRA CLEAR painpoint detected: ${userResponse}`);
+      return {
+        clarity_level: "clear",
+        specific_struggle: userResponse,
+        needs_more_probing: false,
+        recognition_reason: "algebra_specific_clear_indicator",
+      };
+    }
+  }
+
+  // Check geometry specific indicators
+  if (topic.includes("geometry")) {
+    const hasGeometryClarity = geometry_clear_indicators.some((indicator) =>
+      response.includes(indicator)
+    );
+
+    if (hasGeometryClarity) {
+      console.log(`✅ GEOMETRY CLEAR painpoint detected: ${userResponse}`);
+      return {
+        clarity_level: "clear",
+        specific_struggle: userResponse,
+        needs_more_probing: false,
+        recognition_reason: "geometry_specific_clear_indicator",
+      };
+    }
+  }
+
+  // ===== CHECK GENERAL MATHEMATICAL CLARITY =====
+
+  const hasGeneralMathClarity = general_math_clear_indicators.some(
+    (indicator) => response.includes(indicator)
   );
 
-  if (hasSpecificMathStruggle) {
-    console.log(`✅ CLEAR painpoint detected: ${userResponse}`);
+  if (hasGeneralMathClarity) {
+    console.log(`✅ GENERAL MATH CLEAR painpoint detected: ${userResponse}`);
     return {
       clarity_level: "clear",
       specific_struggle: userResponse,
       needs_more_probing: false,
-      recognition_reason: "specific_struggle_detected",
+      recognition_reason: "general_mathematical_clear_indicator",
     };
   }
 
-  // Enhanced vague response detection
+  // ===== ENHANCED PHRASE-BASED DETECTION =====
+
+  // Look for clear struggle phrases
+  const clear_struggle_phrases = [
+    "i don't understand",
+    "i can't understand",
+    "i don't get",
+    "i can't do",
+    "i struggle with",
+    "i have trouble with",
+    "i get confused with",
+    "i don't know how to",
+    "i can't figure out",
+    "i can't remember how to",
+  ];
+
+  const hasClearStrugglePhrase = clear_struggle_phrases.some((phrase) =>
+    response.includes(phrase)
+  );
+
+  if (hasClearStrugglePhrase && response.length > 8) {
+    console.log(`✅ CLEAR STRUGGLE PHRASE detected: ${userResponse}`);
+    return {
+      clarity_level: "clear",
+      specific_struggle: userResponse,
+      needs_more_probing: false,
+      recognition_reason: "clear_struggle_phrase_detected",
+    };
+  }
+
+  // ===== ORIGINAL VAGUE DETECTION (UNCHANGED) =====
+
   const definite_vague_indicators = [
     "i don't know",
     "not sure",
@@ -1059,8 +1213,9 @@ async function analyzeEnhancedPainpointClarity(userResponse, profile) {
     "not really sure",
   ];
 
-  const isDefinitelyVague = definite_vague_indicators.some((indicator) =>
-    response.includes(indicator)
+  // BUT: Only consider it vague if it's ONLY these words with no specific content
+  const isDefinitelyVague = definite_vague_indicators.some(
+    (indicator) => response === indicator || response === indicator + "."
   );
 
   if (isDefinitelyVague) {
@@ -1073,42 +1228,15 @@ async function analyzeEnhancedPainpointClarity(userResponse, profile) {
     };
   }
 
-  // Check for moderate specificity with enhanced criteria
-  const moderate_specificity_indicators = [
-    "sometimes",
-    "usually",
-    "often",
-    "mostly",
-    "kind of",
-    "sort of",
-    "a bit",
-    "little bit",
-    "hard to",
-    "difficult",
-  ];
+  // ===== DEFAULT TO CLEAR FOR REASONABLE LENGTH =====
 
-  const hasModerateSpecificity = moderate_specificity_indicators.some(
-    (indicator) => response.includes(indicator)
-  );
-
-  if (hasModerateSpecificity && response.length > 10) {
-    console.log(`✅ MODERATE-TO-CLEAR painpoint detected: ${userResponse}`);
-    return {
-      clarity_level: "clear", // Treat as clear for better flow
-      specific_struggle: response,
-      needs_more_probing: false,
-      recognition_reason: "moderate_specificity_sufficient",
-    };
-  }
-
-  // Length-based analysis with enhanced thresholds
-  if (response.length > 20) {
+  if (response.length > 10) {
     console.log(`✅ LENGTH-BASED CLEAR painpoint detected: ${userResponse}`);
     return {
       clarity_level: "clear",
       specific_struggle: response,
       needs_more_probing: false,
-      recognition_reason: "sufficient_detail_provided",
+      recognition_reason: "sufficient_length_and_content",
     };
   }
 
