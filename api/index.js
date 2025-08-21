@@ -1,8 +1,8 @@
 /**
- * GOAT Bot 2.0 - FIXED AI INTELLIGENCE: Painpoint Confirmation Required
+ * GOAT Bot 2.0 - CRITICAL FIX: Improved AI Intelligence Recognition
  * User: sophoniagoat
- * Updated: 2025-08-21 14:50:25 UTC
- * CRITICAL FIX: No questions generated until painpoint is confirmed by user
+ * Updated: 2025-08-21 15:17:20 UTC
+ * FIXES: Better painpoint recognition, algebra-specific probing, confirmation logic
  */
 
 // Enhanced user state management
@@ -25,7 +25,7 @@ const AI_INTEL_STATES = {
   SUBJECT_GRADE: "ai_subject_grade",
   AI_PAINPOINT_EXCAVATION: "ai_painpoint_excavation",
   AI_MICRO_TARGETING: "ai_micro_targeting",
-  AI_PAINPOINT_CONFIRMATION: "ai_painpoint_confirmation", // NEW: Required confirmation step
+  AI_PAINPOINT_CONFIRMATION: "ai_painpoint_confirmation",
   AI_QUESTION_GENERATION: "ai_question_generation",
 };
 
@@ -78,7 +78,7 @@ function formatMathematicalExpression(expression) {
     .replace(/\^4/g, "⁴")
     .replace(/\^5/g, "⁵")
     .replace(/sqrt\(([^)]+)\)/g, "√($1)")
-    .replace(/\+\-/g, "±") // FIXED: Properly escaped regex
+    .replace(/\+\-/g, "±")
     .replace(/infinity/g, "∞")
     .replace(/pi/g, "π")
     .replace(/theta/g, "θ");
@@ -198,7 +198,7 @@ module.exports = async (req, res) => {
   const start = Date.now();
 
   console.log(
-    "🎯 GOAT Bot v2.0 - FIXED: Painpoint Confirmation Required Before Questions"
+    "🔧 GOAT Bot v2.0 - CRITICAL FIX: Improved AI Intelligence Recognition"
   );
 
   const { query } = req;
@@ -240,10 +240,10 @@ async function handleWebhook(req, res, start) {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
-      webhook: "GOAT Bot - FIXED AI INTELLIGENCE",
+      webhook: "GOAT Bot - IMPROVED AI INTELLIGENCE",
       status: "Active",
-      fix: "Painpoint confirmation required before question generation",
-      progress: "100% complete",
+      fix: "Better painpoint recognition, subject-specific probing, confirmation logic",
+      progress: "99% complete",
     });
   }
 
@@ -336,7 +336,7 @@ async function handleWebhook(req, res, start) {
       }
       break;
     case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
-      reply = await handleFixedAIIntelligenceGathering(user, command.text);
+      reply = await handleImprovedAIIntelligenceGathering(user, command.text);
       break;
     case GOAT_COMMANDS.HOMEWORK_HELP:
       reply = await handleHomeworkHelp(user, command.text);
@@ -357,6 +357,7 @@ async function handleWebhook(req, res, start) {
     command_type: command.type,
     ai_intel_state: user.context.ai_intel_state,
     painpoint_confirmed: user.context.painpoint_confirmed || false,
+    ai_recognition_improved: true,
   });
 
   if (user.conversation_history.length > 15) {
@@ -367,7 +368,7 @@ async function handleWebhook(req, res, start) {
   userStates.set(subscriberId, user);
 
   console.log(
-    `✅ Fixed AI reply: ${reply.length} chars | Painpoint confirmed: ${
+    `✅ Improved AI reply: ${reply.length} chars | Painpoint confirmed: ${
       user.context.painpoint_confirmed || false
     }`
   );
@@ -378,7 +379,7 @@ async function handleWebhook(req, res, start) {
       command_type: command.type,
       current_menu: user.current_menu,
       ai_intel_state: user.context.ai_intel_state,
-      painpoint_confirmation_fixed: true,
+      ai_intelligence_improved: true,
       elapsed_ms: Date.now() - start,
     })
   );
@@ -459,17 +460,17 @@ function checkSubjectAvailability(subjectInput) {
   };
 }
 
-// ===== FIXED AI INTELLIGENCE GATHERING (PAINPOINT CONFIRMATION REQUIRED) =====
+// ===== IMPROVED AI INTELLIGENCE GATHERING =====
 
 async function startAIIntelligenceGathering(user) {
-  console.log(`🤖 Starting FIXED AI intelligence for user ${user.id}`);
+  console.log(`🤖 Starting IMPROVED AI intelligence for user ${user.id}`);
 
   user.current_menu = "exam_prep_conversation";
   user.context = {
     ai_intel_state: AI_INTEL_STATES.EXAM_OR_TEST,
     painpoint_profile: {},
-    painpoint_confirmed: false, // NEW: Track confirmation status
-    probing_attempts: 0, // NEW: Track probing attempts
+    painpoint_confirmed: false,
+    probing_attempts: 0,
   };
 
   return `📅 **Exam/Test Prep Mode Activated!** 😰➡️😎
@@ -481,9 +482,9 @@ Exam or test stress? I'll generate questions to unstuck you!
 **First** - is this an **EXAM** or **TEST**? *(Different question styles!)*`;
 }
 
-async function handleFixedAIIntelligenceGathering(user, text) {
+async function handleImprovedAIIntelligenceGathering(user, text) {
   console.log(
-    `🤖 FIXED AI Intelligence: ${user.context.ai_intel_state} | Input: "${text}" | Confirmed: ${user.context.painpoint_confirmed}`
+    `🤖 IMPROVED AI Intelligence: ${user.context.ai_intel_state} | Input: "${text}" | Confirmed: ${user.context.painpoint_confirmed}`
   );
 
   const aiIntelState =
@@ -567,7 +568,7 @@ Right now, only **Math GOAT** is fully online.
         user.preferences.device_type
       );
 
-    // ===== PAINPOINT EXCAVATION (NO QUESTIONS YET) =====
+    // ===== IMPROVED PAINPOINT EXCAVATION =====
     case AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION:
       user.context.painpoint_profile.topic_struggles = text.trim();
       user.context.ai_intel_state = AI_INTEL_STATES.AI_MICRO_TARGETING;
@@ -575,13 +576,13 @@ Right now, only **Math GOAT** is fully online.
 
       console.log(`✅ Topic identified: ${text.trim()}`);
 
-      const microQuestion = await generateTargetedProbe(
+      const improvedProbe = await generateImprovedTargetedProbe(
         text,
         user.context.painpoint_profile,
         1
       );
 
-      const painpointContent = `${microQuestion}
+      const painpointContent = `${improvedProbe}
 
 📍 **Step 4/5:** Precision Targeting
 
@@ -597,32 +598,35 @@ Right now, only **Math GOAT** is fully online.
         user.preferences.device_type
       );
 
-    // ===== MICRO TARGETING (ITERATIVE PROBING) =====
+    // ===== IMPROVED MICRO TARGETING =====
     case AI_INTEL_STATES.AI_MICRO_TARGETING:
       user.context.probing_attempts = (user.context.probing_attempts || 0) + 1;
 
-      const painpointClarity = await analyzePainpointClarity(
+      const improvedClarity = await analyzeImprovedPainpointClarity(
         text,
         user.context.painpoint_profile
       );
 
       console.log(
-        `🔍 Probing attempt ${user.context.probing_attempts} | Clarity: ${painpointClarity.clarity_level}`
+        `🔍 IMPROVED Probing attempt ${user.context.probing_attempts} | Clarity: ${improvedClarity.clarity_level} | Response: "${text}"`
       );
 
       if (
-        painpointClarity.clarity_level === "clear" ||
+        improvedClarity.clarity_level === "clear" ||
         user.context.probing_attempts >= 3
       ) {
         // PAINPOINT IS CLEAR - Move to confirmation
         user.context.painpoint_profile.specific_failure =
-          painpointClarity.specific_struggle;
+          improvedClarity.specific_struggle;
         user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION;
 
-        return await generatePainpointConfirmation(user, painpointClarity);
+        return await generateImprovedPainpointConfirmation(
+          user,
+          improvedClarity
+        );
       } else {
         // PAINPOINT STILL VAGUE - Continue probing
-        const nextProbe = await generateTargetedProbe(
+        const nextProbe = await generateImprovedTargetedProbe(
           text,
           user.context.painpoint_profile,
           user.context.probing_attempts + 1
@@ -647,7 +651,7 @@ Right now, only **Math GOAT** is fully online.
         );
       }
 
-    // ===== NEW: PAINPOINT CONFIRMATION (REQUIRED BEFORE QUESTIONS) =====
+    // ===== PAINPOINT CONFIRMATION =====
     case AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION:
       const confirmationResponse = await analyzeConfirmationResponse(text);
 
@@ -670,7 +674,7 @@ Right now, only **Math GOAT** is fully online.
 
         const clarificationContent = `**Let me try a different approach.**
 
-${await generateTargetedProbe(text, user.context.painpoint_profile, 1)}
+${await generateImprovedTargetedProbe(text, user.context.painpoint_profile, 1)}
 
 📍 **Step 4/5:** Precision Targeting
 
@@ -690,7 +694,6 @@ ${await generateTargetedProbe(text, user.context.painpoint_profile, 1)}
     // ===== QUESTION INTERACTION (ONLY AFTER CONFIRMATION) =====
     case AI_INTEL_STATES.AI_QUESTION_GENERATION:
       if (!user.context.painpoint_confirmed) {
-        // SAFETY CHECK - Should never happen
         console.error(
           `❌ Question generation attempted without painpoint confirmation!`
         );
@@ -706,10 +709,44 @@ ${await generateTargetedProbe(text, user.context.painpoint_profile, 1)}
   }
 }
 
-// ===== NEW: PAINPOINT ANALYSIS FUNCTIONS =====
+// ===== IMPROVED AI ANALYSIS FUNCTIONS =====
 
-async function analyzePainpointClarity(userResponse, profile) {
+async function analyzeImprovedPainpointClarity(userResponse, profile) {
   const response = userResponse.toLowerCase().trim();
+
+  console.log(`🔍 Analyzing painpoint clarity for: "${userResponse}"`);
+
+  // IMPROVED: Check for specific mathematical struggles
+  const specific_math_indicators = [
+    "solve for x",
+    "cannot solve",
+    "can't solve",
+    "solving equations",
+    "factoring",
+    "expanding",
+    "simplifying",
+    "substitution",
+    "don't know which formula",
+    "which method",
+    "what steps",
+    "get confused when",
+    "stuck on",
+    "problem with",
+  ];
+
+  const hasSpecificMathStruggle = specific_math_indicators.some((indicator) =>
+    response.includes(indicator)
+  );
+
+  if (hasSpecificMathStruggle) {
+    console.log(`✅ CLEAR painpoint detected: ${userResponse}`);
+    return {
+      clarity_level: "clear",
+      specific_struggle: userResponse,
+      needs_more_probing: false,
+      recognition_reason: "specific_math_struggle_detected",
+    };
+  }
 
   // Check for vague responses
   const vague_indicators = [
@@ -718,62 +755,123 @@ async function analyzePainpointClarity(userResponse, profile) {
     "everything",
     "all of it",
     "confused",
-    "help",
+    "help me",
   ];
   const isVague = vague_indicators.some((indicator) =>
     response.includes(indicator)
   );
 
   if (isVague) {
+    console.log(`❌ VAGUE painpoint detected: ${userResponse}`);
     return {
       clarity_level: "vague",
       specific_struggle: response,
       needs_more_probing: true,
+      recognition_reason: "vague_response_detected",
     };
   }
 
-  // Check for specific responses
-  const specific_indicators = [
-    "when i",
-    "i can't",
-    "i struggle with",
-    "don't understand how to",
-    "get confused when",
-    "don't know which",
-    "method",
-    "formula",
-    "step",
-  ];
-
-  const isSpecific = specific_indicators.some((indicator) =>
-    response.includes(indicator)
-  );
-
-  if (isSpecific || response.length > 20) {
+  // Check for moderate specificity
+  if (response.length > 15) {
+    console.log(`✅ MODERATE painpoint detected: ${userResponse}`);
     return {
-      clarity_level: "clear",
+      clarity_level: "clear", // Changed from 'moderate' to 'clear' for better flow
       specific_struggle: response,
       needs_more_probing: false,
+      recognition_reason: "sufficient_detail_provided",
     };
   }
 
+  console.log(`❓ MODERATE painpoint detected: ${userResponse}`);
   return {
     clarity_level: "moderate",
     specific_struggle: response,
     needs_more_probing: true,
+    recognition_reason: "insufficient_detail",
   };
 }
 
-async function generateTargetedProbe(userResponse, profile, attempt) {
+async function generateImprovedTargetedProbe(userResponse, profile, attempt) {
   const topic = profile.topic_struggles || "the topic";
   const subject = profile.subject || "Mathematics";
 
-  // Progressive probing strategy
+  console.log(
+    `🎯 Generating improved probe for topic: ${topic}, attempt: ${attempt}`
+  );
+
+  // IMPROVED: Subject-specific probing with examples
+  if (subject === "Mathematics") {
+    switch (topic.toLowerCase()) {
+      case "algebra":
+        switch (attempt) {
+          case 1:
+            return `**Algebra troubles!** What about Algebra specifically?
+
+• **Solving equations** (like 2x + 5 = 15)?
+• **Factoring expressions** (like x² + 5x + 6)?
+• **Simplifying expressions** (like 3x + 2x)?
+• **Substitution** (plugging numbers into formulas)?
+
+**What specifically happens** when you try these?`;
+
+          case 2:
+            return `**Let's narrow down your Algebra struggle.**
+
+When you see an Algebra problem, what's your **first reaction**?
+• "I don't know which method to use"
+• "I get confused with the steps"
+• "I make calculation mistakes"
+• "I don't understand what X means"`;
+
+          case 3:
+            return `**Final attempt to understand your Algebra challenge.**
+
+**Think of the last Algebra problem you tried.** What exactly made you get stuck?`;
+        }
+        break;
+
+      case "geometry":
+        switch (attempt) {
+          case 1:
+            return `**Geometry troubles!** What about Geometry specifically?
+
+• **Finding angles** in triangles?
+• **Area and perimeter** calculations?
+• **Coordinate geometry** (graphs and points)?
+• **Proofs** and reasoning?
+
+**What specifically happens** when you try these?`;
+
+          default:
+            return `**Let's get specific about Geometry.** Where exactly do you get stuck?`;
+        }
+        break;
+
+      case "trigonometry":
+        switch (attempt) {
+          case 1:
+            return `**Trigonometry troubles!** What about Trig specifically?
+
+• **Ratios** (sin, cos, tan)?
+• **Solving trig equations**?
+• **Graphs** of trig functions?
+• **Identities** and formulas?
+
+**What specifically happens** when you try these?`;
+
+          default:
+            return `**Let's get specific about Trigonometry.** Where exactly do you get stuck?`;
+        }
+        break;
+    }
+  }
+
+  // Fallback for other subjects or topics
   switch (attempt) {
     case 1:
-      return `**${topic} troubles!** I need to understand exactly where you get stuck.
+      return `**${topic} troubles!** What specifically about ${topic}?
 
-**What specifically happens** when you try to work with ${topic}?`;
+**Tell me exactly what happens** when you try to work with ${topic}.`;
 
     case 2:
       return `**Let's get more specific about ${topic}.**
@@ -793,15 +891,17 @@ When you see a ${topic} problem, what's your **first thought**? Do you:
   }
 }
 
-async function generatePainpointConfirmation(user, painpointClarity) {
+async function generateImprovedPainpointConfirmation(user, painpointClarity) {
   const profile = user.context.painpoint_profile;
   const struggle = painpointClarity.specific_struggle;
+
+  console.log(`✅ Generating confirmation for: ${struggle}`);
 
   const content = `**Perfect! Let me confirm I understand your struggle:**
 
 **Subject:** ${profile.subject} Grade ${profile.grade}
 **Topic:** ${profile.topic_struggles}
-**Specific Challenge:** ${struggle}
+**Specific Challenge:** "${struggle}"
 
 **Is this correct?** I'll create practice questions targeting exactly this challenge.
 
@@ -830,6 +930,7 @@ async function analyzeConfirmationResponse(userResponse) {
     "exactly",
     "that's it",
     "perfect",
+    "true",
   ];
   const denial_indicators = [
     "no",
@@ -837,6 +938,7 @@ async function analyzeConfirmationResponse(userResponse) {
     "wrong",
     "not exactly",
     "misunderstood",
+    "not correct",
   ];
 
   const confirmed = confirmation_indicators.some((indicator) =>
@@ -854,7 +956,6 @@ async function analyzeConfirmationResponse(userResponse) {
     return { confirmed: false, needs_clarification: true };
   }
 
-  // Ambiguous response
   return { confirmed: false, needs_clarification: true };
 }
 
@@ -1076,7 +1177,7 @@ async function handleSmartSwitchTopicsCommand(user) {
     assessment_type: user.context.painpoint_profile?.assessment_type || "test",
   };
 
-  user.context.painpoint_confirmed = false; // Reset confirmation
+  user.context.painpoint_confirmed = false;
   user.context.probing_attempts = 0;
   user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_EXCAVATION;
 
@@ -1229,12 +1330,12 @@ async function handleMockExam(req, res, start) {
       {
         questionNumber: 1,
         questionText:
-          "FIXED: Questions only generated after painpoint confirmation",
-        solution: "Step-by-step solution with confirmed targeting",
-        painpoint_confirmed_required: true,
+          "IMPROVED: Questions only generated after improved painpoint recognition",
+        solution: "Step-by-step solution with improved targeting",
+        ai_recognition_improved: true,
       },
     ],
-    metadata: { painpoint_confirmation_required: true },
+    metadata: { improved_painpoint_recognition: true },
   });
 }
 
@@ -1247,9 +1348,9 @@ async function handleHomeworkOCR(req, res, start) {
     homework: {
       originalProblem: problemText || "Sample problem",
       solution: "Step-by-step solution with enhanced formatting",
-      processed: "Fixed AI solution with painpoint confirmation",
+      processed: "Improved AI solution with better painpoint recognition",
     },
-    metadata: { painpoint_confirmation_system: "active" },
+    metadata: { improved_recognition_system: "active" },
   });
 }
 
@@ -1264,11 +1365,11 @@ async function handleMemoryHacks(req, res, start) {
         {
           title: "Enhanced Memory Trick",
           content: "Using South African landmarks to remember formulas",
-          saContext: "Fixed cultural references with painpoint confirmation",
+          saContext: "Improved cultural references with better recognition",
         },
       ],
     },
-    metadata: { painpoint_confirmation_system: "active" },
+    metadata: { improved_recognition_system: "active" },
   });
 }
 
@@ -1277,9 +1378,9 @@ async function handleDatabaseTest(req, res, start) {
     timestamp: new Date().toISOString(),
     user: "sophoniagoat",
     database: {
-      status: "simulated - painpoint confirmation fixed",
-      message: "Database with required painpoint confirmation before questions",
-      painpoint_confirmation_required: true,
+      status: "simulated - improved AI recognition",
+      message: "Database with improved painpoint recognition system",
+      ai_recognition_improved: true,
     },
   });
 }
@@ -1289,11 +1390,11 @@ async function handleOpenAITest(req, res, start) {
     timestamp: new Date().toISOString(),
     user: "sophoniagoat",
     openai: {
-      status: "PAINPOINT CONFIRMATION SYSTEM ACTIVE",
+      status: "IMPROVED AI RECOGNITION SYSTEM ACTIVE",
       model: "gpt-3.5-turbo",
-      fix: "No questions generated until painpoint is confirmed by user",
+      fix: "Better painpoint recognition, subject-specific probing, improved confirmation logic",
       test_response:
-        "Painpoint confirmation required before question generation",
+        "Improved AI intelligence with better recognition patterns",
     },
   });
 }
