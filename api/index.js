@@ -1,8 +1,8 @@
 /**
- * GOAT Bot 2.0 - Fixed Echo Parameter for WhatsApp
+ * GOAT Bot 2.0 - STEP 1: Intelligence-Driven Exam Prep Conversation
  * User: sophoniagoat
- * Fixed: 2025-08-21 12:04:01 UTC
- * Issue: Echo parameter was truncated, WhatsApp shows incomplete message
+ * Updated: 2025-08-21 12:39:04 UTC
+ * LOCKED APPROACH: Detective bot extracting exact painpoints
  */
 
 // Enhanced user state management
@@ -18,11 +18,21 @@ const GOAT_COMMANDS = {
   CONVERSATIONAL_INPUT: "conversational_input",
 };
 
+// ===== NEW INTELLIGENCE-DRIVEN STATES =====
+const INTEL_STATES = {
+  EXAM_OR_TEST: "exam_or_test",
+  SUBJECT_GRADE: "subject_grade",
+  PAINPOINT_EXCAVATION: "painpoint_excavation",
+  MICRO_TARGETING: "micro_targeting",
+  CONFIDENCE_ASSESSMENT: "confidence_assessment",
+  FAILURE_MODE_ANALYSIS: "failure_mode_analysis",
+  QUESTION_GENERATION: "question_generation",
+};
+
 // Enhanced command parser
 function parseGoatCommand(message, userContext) {
   const text = message.toLowerCase().trim();
 
-  // Welcome/Menu commands - always return to main menu
   if (
     !message ||
     text.includes("start") ||
@@ -33,7 +43,6 @@ function parseGoatCommand(message, userContext) {
     return { type: GOAT_COMMANDS.WELCOME };
   }
 
-  // Menu number selections (1, 2, 3)
   if (/^[123]$/.test(text)) {
     return {
       type: GOAT_COMMANDS.MENU_CHOICE,
@@ -43,32 +52,25 @@ function parseGoatCommand(message, userContext) {
     };
   }
 
-  // Context-based routing with proper state management
   const currentMenu = userContext.current_menu || "welcome";
 
   switch (currentMenu) {
     case "exam_prep_conversation":
       return { type: GOAT_COMMANDS.EXAM_PREP_CONVERSATION, text: message };
-
     case "homework_active":
       return { type: GOAT_COMMANDS.HOMEWORK_HELP, text: message };
-
     case "memory_hacks_active":
       return { type: GOAT_COMMANDS.MEMORY_HACKS, text: message };
-
     case "welcome":
     default:
-      // If user types anything other than 1,2,3 at welcome, stay in welcome
       if (
         text === "thank you" ||
         text === "thanks" ||
         text === "ok" ||
         text === "okay"
       ) {
-        return { type: GOAT_COMMANDS.WELCOME }; // Stay in welcome menu
+        return { type: GOAT_COMMANDS.WELCOME };
       }
-
-      // Only treat as homework if explicitly requesting help
       if (
         text.includes("solve") ||
         text.includes("calculate") ||
@@ -77,32 +79,26 @@ function parseGoatCommand(message, userContext) {
       ) {
         return { type: GOAT_COMMANDS.HOMEWORK_HELP, text: message };
       }
-
-      // Default: show menu again
       return { type: GOAT_COMMANDS.WELCOME };
   }
 }
 
-// ===== FIXED RESPONSE FORMATTER =====
 function formatGoatResponse(message, metadata = {}) {
-  // CRITICAL FIX: Use full message for echo, not truncated version
   return {
     message,
     status: "success",
-    echo: message, // FIXED: Send full message to WhatsApp
+    echo: message,
     timestamp: new Date().toISOString(),
     user: "sophoniagoat",
     ...metadata,
   };
 }
 
-// Main handler
 module.exports = async (req, res) => {
   const start = Date.now();
 
-  console.log("🐐 GOAT Bot v2.0 - Fixed Echo Parameter");
+  console.log("🐐 GOAT Bot v2.0 - STEP 1: Intelligence-Driven States");
 
-  // Route based on URL path
   const { query } = req;
   const endpoint = query.endpoint || "webhook";
 
@@ -129,7 +125,7 @@ module.exports = async (req, res) => {
       message:
         "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
       status: "error",
-      echo: "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄", // FIXED: Full error message
+      echo: "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
       error: error.message,
       elapsed_ms: Date.now() - start,
       user: "sophoniagoat",
@@ -137,23 +133,22 @@ module.exports = async (req, res) => {
   }
 };
 
-// Enhanced webhook handler with proper flow
 async function handleWebhook(req, res, start) {
   if (req.method === "GET") {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
-      webhook: "GOAT Bot - Fixed Echo Parameter for WhatsApp",
+      webhook: "GOAT Bot - STEP 1: Intelligence-Driven Conversation States",
       status: "Active",
-      fix: "Echo parameter now sends full message content",
-      testCommands: ["hi", "1", "2", "3", "menu"],
+      implementation: "Detective bot extracting exact painpoints",
+      locked_approach: "Precision targeting via intelligence gathering",
     });
   }
 
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Only POST requests supported",
-      echo: "Only POST requests supported", // FIXED: Add echo for error
+      echo: "Only POST requests supported",
     });
   }
 
@@ -164,7 +159,7 @@ async function handleWebhook(req, res, start) {
   if (!subscriberId) {
     return res.status(400).json({
       error: "Missing subscriber_id (psid)",
-      echo: "Missing subscriber_id (psid)", // FIXED: Add echo for error
+      echo: "Missing subscriber_id (psid)",
     });
   }
 
@@ -172,23 +167,21 @@ async function handleWebhook(req, res, start) {
     `📥 User ${subscriberId}: "${message}" (${message.length} chars)`
   );
 
-  // Get or create user state with enhanced tracking
   let user = userStates.get(subscriberId) || {
     id: subscriberId,
     current_menu: "welcome",
     context: {},
+    painpoint_profile: {},
     conversation_history: [],
     last_active: new Date().toISOString(),
   };
 
-  // Log current state for debugging
   console.log(
-    `👤 User ${user.id} | Menu: ${
-      user.current_menu
-    } | Context: ${JSON.stringify(user.context).substring(0, 100)}`
+    `👤 User ${user.id} | Menu: ${user.current_menu} | Intel State: ${
+      user.context.intel_state || "none"
+    }`
   );
 
-  // Parse command with enhanced context
   const command = parseGoatCommand(message, {
     current_menu: user.current_menu,
     context: user.context,
@@ -203,60 +196,48 @@ async function handleWebhook(req, res, start) {
 
   let reply = "";
 
-  // Enhanced routing with proper state transitions
   switch (command.type) {
-    // ===== WELCOME MENU (ALWAYS SHOWS FULL MENU) =====
     case GOAT_COMMANDS.WELCOME:
       reply = await showWelcomeMenu(user);
       break;
-
-    // ===== MENU CHOICES (1, 2, 3) =====
     case GOAT_COMMANDS.MENU_CHOICE:
       switch (command.choice) {
-        case 1: // Exam/Test Prep - Start Conversational AI
-          reply = await startExamPrepConversation(user);
+        case 1:
+          reply = await startIntelligenceGathering(user);
           break;
-        case 2: // Homework Help
+        case 2:
           reply = await startHomeworkHelp(user);
           break;
-        case 3: // Memory Hacks
+        case 3:
           reply = await startMemoryHacks(user);
           break;
         default:
           reply = await showWelcomeMenu(user);
       }
       break;
-
-    // ===== EXAM PREP CONVERSATIONAL FLOW =====
     case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
-      reply = await handleExamPrepConversation(user, command.text);
+      reply = await handleIntelligenceGathering(user, command.text);
       break;
-
-    // ===== HOMEWORK HELP FLOW =====
     case GOAT_COMMANDS.HOMEWORK_HELP:
       reply = await handleHomeworkHelp(user, command.text);
       break;
-
-    // ===== MEMORY HACKS FLOW =====
     case GOAT_COMMANDS.MEMORY_HACKS:
       reply = await handleMemoryHacksFlow(user, command.text);
       break;
-
     default:
       console.warn(`⚠️ Unhandled command type: ${command.type}`);
       reply = await showWelcomeMenu(user);
       break;
   }
 
-  // Update user state and conversation history
   user.conversation_history.push({
     user_input: message,
     bot_response: reply.substring(0, 100),
     timestamp: new Date().toISOString(),
     command_type: command.type,
+    intel_state: user.context.intel_state,
   });
 
-  // Keep only last 10 interactions
   if (user.conversation_history.length > 10) {
     user.conversation_history = user.conversation_history.slice(-10);
   }
@@ -265,30 +246,30 @@ async function handleWebhook(req, res, start) {
   userStates.set(subscriberId, user);
 
   console.log(
-    `✅ Reply generated (${reply.length} chars) | New state: ${user.current_menu}`
+    `✅ Reply generated (${reply.length} chars) | New state: ${user.current_menu} | Intel: ${user.context.intel_state}`
   );
-  console.log(`📤 Full reply being sent: "${reply.substring(0, 200)}..."`);
 
   return res.status(200).json(
     formatGoatResponse(reply, {
       user_id: user.id,
       command_type: command.type,
       current_menu: user.current_menu,
+      intel_state: user.context.intel_state,
       elapsed_ms: Date.now() - start,
     })
   );
 }
 
-// ===== ENHANCED HANDLER FUNCTIONS =====
+// ===== CORE HANDLER FUNCTIONS =====
 
 async function showWelcomeMenu(user) {
   console.log(`🏠 Showing welcome menu to user ${user.id}`);
 
-  // Reset user state to welcome
   user.current_menu = "welcome";
   user.context = {};
+  user.painpoint_profile = {};
 
-  const welcomeMessage = `Welcome to The GOAT. I'm here help you study with calm and clarity.
+  return `Welcome to The GOAT. I'm here help you study with calm and clarity.
 
 What do you need right now?
 
@@ -297,64 +278,63 @@ What do you need right now?
 3️⃣ 🧮 Tips & Hacks
 
 Just pick a number! ✨`;
-
-  console.log(`📤 Welcome message length: ${welcomeMessage.length} chars`);
-  return welcomeMessage;
 }
 
-async function startExamPrepConversation(user) {
-  console.log(`📅 Starting exam prep conversation for user ${user.id}`);
+// ===== NEW INTELLIGENCE-DRIVEN FUNCTIONS =====
 
-  // Set state to conversational exam prep
+async function startIntelligenceGathering(user) {
+  console.log(`🔍 Starting intelligence gathering for user ${user.id}`);
+
   user.current_menu = "exam_prep_conversation";
   user.context = {
-    step: "exam_or_test",
-    exam_info: {},
+    intel_state: INTEL_STATES.EXAM_OR_TEST,
+    painpoint_profile: {},
   };
 
   return `📅 **Exam/Test Prep Mode Activated!** 😰➡️😎
 
-Oh great! Is it an exam or a test? When is it? 
+Exam or test stress? I'll generate questions to unstuck you!
 
-(I need to know because exams and tests need different prep strategies! 📚)`;
+First - is this an EXAM or TEST? (Different question styles!)`;
 }
 
-async function handleExamPrepConversation(user, text) {
-  console.log(`💬 Handling exam prep conversation: ${text.substring(0, 50)}`);
+async function handleIntelligenceGathering(user, text) {
+  console.log(
+    `🔍 Intelligence gathering: ${
+      user.context.intel_state
+    } | Input: ${text.substring(0, 50)}`
+  );
 
-  const step = user.context.step || "exam_or_test";
-  const examInfo = user.context.exam_info || {};
+  const intelState = user.context.intel_state || INTEL_STATES.EXAM_OR_TEST;
+  const profile = user.context.painpoint_profile || {};
 
-  switch (step) {
-    case "exam_or_test":
-      // Determine if it's exam or test and extract date
+  switch (intelState) {
+    // ===== STAGE 1: EXAM OR TEST =====
+    case INTEL_STATES.EXAM_OR_TEST:
       const isExam = text.toLowerCase().includes("exam");
       const isTest = text.toLowerCase().includes("test");
 
-      // Extract date information
-      let dateInfo = "";
-      if (text.includes("next week")) dateInfo = "next week";
-      if (text.includes("tomorrow")) dateInfo = "tomorrow";
-      if (text.includes("monday")) dateInfo = "Monday";
-      if (text.includes("tuesday")) dateInfo = "Tuesday";
-      if (text.includes("wednesday")) dateInfo = "Wednesday";
-      if (text.includes("thursday")) dateInfo = "Thursday";
-      if (text.includes("friday")) dateInfo = "Friday";
+      profile.assessment_type = isExam
+        ? "exam"
+        : isTest
+        ? "test"
+        : "assessment";
 
-      examInfo.type = isExam ? "exam" : isTest ? "test" : "assessment";
-      examInfo.date = dateInfo || "soon";
+      user.context.intel_state = INTEL_STATES.SUBJECT_GRADE;
+      user.context.painpoint_profile = profile;
 
-      user.context.exam_info = examInfo;
-      user.context.step = "subject_grade";
+      return `Perfect! ${profile.assessment_type.toUpperCase()}s are ${
+        profile.assessment_type === "exam"
+          ? "longer and cover more topics"
+          : "shorter and more focused"
+      }.
 
-      return `Got it! A ${examInfo.type} ${examInfo.date}. Because this is our first time talking, let me gather some info...
-
-What subject is your ${examInfo.type} in, and what grade are you?
+What subject and grade?
 
 (Example: "Grade 11 Mathematics" or "Physical Sciences Grade 10")`;
 
-    case "subject_grade":
-      // Extract subject and grade
+    // ===== STAGE 2: SUBJECT AND GRADE =====
+    case INTEL_STATES.SUBJECT_GRADE:
       const gradeMatch = text.match(/grade\s*(\d+)/i) || text.match(/(\d+)/);
       const grade = gradeMatch ? gradeMatch[1] : "10";
 
@@ -372,82 +352,299 @@ What subject is your ${examInfo.type} in, and what grade are you?
         subject = "Life Sciences";
       if (text.toLowerCase().includes("english")) subject = "English";
       if (text.toLowerCase().includes("afrikaans")) subject = "Afrikaans";
+      if (text.toLowerCase().includes("chemistry")) subject = "Chemistry";
 
-      examInfo.subject = subject;
-      examInfo.grade = grade;
+      profile.subject = subject;
+      profile.grade = grade;
 
-      user.context.exam_info = examInfo;
-      user.context.step = "topics_concerns";
+      user.context.intel_state = INTEL_STATES.PAINPOINT_EXCAVATION;
+      user.context.painpoint_profile = profile;
 
-      return `Perfect! Grade ${grade} ${subject} ${examInfo.type} ${examInfo.date}. 📚
+      return `Grade ${grade} ${subject} ${profile.assessment_type} coming up!
 
-What specific topics are you worried about? Or what's giving you the most stress?
+Which specific topics are giving you nightmares? 
 
-(Be honest - I'm here to help, not judge! Example: "Trigonometry" or "I don't understand anything" 😅)`;
+(Be honest - I need to know where you're stuck!)`;
 
-    case "topics_concerns":
-      examInfo.topics = text;
-      examInfo.concerns = text;
+    // ===== STAGE 3: PAINPOINT EXCAVATION =====
+    case INTEL_STATES.PAINPOINT_EXCAVATION:
+      profile.topic_area = text;
 
-      user.context.exam_info = examInfo;
-      user.context.step = "generate_plan";
+      // Generate specific probing questions based on subject and topic
+      const probingQuestions = generateProbingQuestions(profile.subject, text);
 
-      // Generate study plan based on collected info
-      return await generateStudyPlan(user, examInfo);
+      user.context.intel_state = INTEL_STATES.MICRO_TARGETING;
+      user.context.painpoint_profile = profile;
+
+      return `${probingQuestions.intro}
+
+What SPECIFICALLY about ${text.toLowerCase()} is making you stuck?
+
+${probingQuestions.options}
+
+Or tell me in your own words what breaks your brain!`;
+
+    // ===== STAGE 4: MICRO TARGETING =====
+    case INTEL_STATES.MICRO_TARGETING:
+      profile.specific_painpoint = text;
+
+      user.context.intel_state = INTEL_STATES.FAILURE_MODE_ANALYSIS;
+      user.context.painpoint_profile = profile;
+
+      return `Perfect! ${text} - I see this struggle all the time!
+
+When you try to tackle ${text.toLowerCase()}, what goes through your head?
+
+Do you:
+• Panic and try random approaches?
+• Have a method but it doesn't work?
+• Know what to do but get confused halfway?
+• Feel completely lost where to start?
+
+Tell me more about what happens when you get stuck!`;
+
+    // ===== STAGE 5: FAILURE MODE ANALYSIS =====
+    case INTEL_STATES.FAILURE_MODE_ANALYSIS:
+      profile.failure_mode = text;
+      profile.confidence_level = assessConfidenceLevel(text);
+
+      user.context.intel_state = INTEL_STATES.QUESTION_GENERATION;
+      user.context.painpoint_profile = profile;
+
+      console.log(`🎯 PAINPOINT PROFILE COMPLETE:`, profile);
+
+      return await generateTargetedQuestion(user, profile);
+
+    // ===== STAGE 6: QUESTION GENERATION =====
+    case INTEL_STATES.QUESTION_GENERATION:
+      // Handle user responses to generated questions
+      if (
+        text.toLowerCase().includes("solution") ||
+        text.toLowerCase().includes("answer")
+      ) {
+        return await showTargetedSolution(user);
+      }
+      if (
+        text.toLowerCase().includes("next") ||
+        text.toLowerCase().includes("another")
+      ) {
+        return await generateTargetedQuestion(user, profile);
+      }
+      if (text.toLowerCase().includes("menu")) {
+        return await showWelcomeMenu(user);
+      }
+
+      return `I see you said: "${text}"
+
+Ready for the solution? Type 'solution'
+Want another question? Type 'next'
+Back to menu? Type 'menu'`;
 
     default:
       return await showWelcomeMenu(user);
   }
 }
 
-async function generateStudyPlan(user, examInfo) {
-  console.log(`📋 Generating study plan for user ${user.id}:`, examInfo);
+// ===== INTELLIGENCE HELPER FUNCTIONS =====
+
+function generateProbingQuestions(subject, topicArea) {
+  const topic = topicArea.toLowerCase();
+
+  // Mathematics probing questions
+  if (subject === "Mathematics") {
+    if (topic.includes("trig")) {
+      return {
+        intro: "Trig can be a real monster!",
+        options: `Is it:
+• Remembering which ratio is which? (sin/cos/tan)
+• Solving trig equations?
+• Graphs and transformations?
+• Word problems with angles?
+• The unit circle?`,
+      };
+    }
+    if (topic.includes("algebra") || topic.includes("equation")) {
+      return {
+        intro:
+          "Algebra - where letters and numbers have a complicated relationship!",
+        options: `Is it:
+• Solving for x?
+• Factoring expressions?
+• Working with fractions?
+• Word problems?
+• Systems of equations?`,
+      };
+    }
+    if (topic.includes("calculus") || topic.includes("derivative")) {
+      return {
+        intro: "Calculus - the ultimate brain workout!",
+        options: `Is it:
+• Understanding what derivatives mean?
+• Actually calculating derivatives?
+• Chain rule confusion?
+• Applications and word problems?
+• Integration vs differentiation?`,
+      };
+    }
+  }
+
+  // Physical Sciences probing questions
+  if (subject === "Physical Sciences") {
+    if (topic.includes("circuit") || topic.includes("electric")) {
+      return {
+        intro: "Circuits - the electric maze!",
+        options: `Is it:
+• Drawing circuit diagrams?
+• Calculating resistance?
+• Understanding current vs voltage?
+• Series vs parallel circuits?
+• Ohm's law applications?`,
+      };
+    }
+    if (topic.includes("wave") || topic.includes("sound")) {
+      return {
+        intro: "Waves - invisible but everywhere!",
+        options: `Is it:
+• Wave equation calculations?
+• Understanding frequency vs wavelength?
+• Wave interference patterns?
+• Sound wave properties?
+• Doppler effect?`,
+      };
+    }
+  }
+
+  // Generic fallback
+  return {
+    intro: `${topicArea} can be tricky!`,
+    options: `Is it:
+• Understanding the basic concepts?
+• Applying formulas correctly?
+• Solving calculation problems?
+• Word problems and applications?
+• Exam technique and strategy?`,
+  };
+}
+
+function assessConfidenceLevel(failureMode) {
+  const text = failureMode.toLowerCase();
+
+  if (
+    text.includes("no clue") ||
+    text.includes("completely lost") ||
+    text.includes("no idea")
+  ) {
+    return "beginner";
+  }
+  if (text.includes("know") && text.includes("but")) {
+    return "intermediate";
+  }
+  if (text.includes("almost") || text.includes("sometimes")) {
+    return "advanced";
+  }
+  if (text.includes("panic") || text.includes("random")) {
+    return "exam_anxiety";
+  }
+
+  return "intermediate"; // Default
+}
+
+async function generateTargetedQuestion(user, profile) {
+  console.log(`🎯 Generating targeted question for profile:`, profile);
 
   try {
-    // Call mock exam API to generate practice questions
+    // Call enhanced mock exam API with painpoint targeting
     const examUrl = `https://goat-edtech.vercel.app/api/index?endpoint=mock-exam&grade=${
-      examInfo.grade
+      profile.grade
     }&subject=${encodeURIComponent(
-      examInfo.subject
-    )}&questionCount=1&topics=${encodeURIComponent(examInfo.topics)}`;
+      profile.subject
+    )}&questionCount=1&topics=${encodeURIComponent(
+      profile.topic_area
+    )}&painpoint=${encodeURIComponent(profile.specific_painpoint)}&confidence=${
+      profile.confidence_level
+    }`;
     const examResponse = await fetch(examUrl);
     const examData = await examResponse.json();
 
-    user.current_menu = "study_plan_active";
-    user.context.study_plan = examData;
+    user.context.current_question = examData.mockExam?.[0];
 
-    return `🎯 **Your Personalized Study Plan** 📚
+    return `🎯 **TARGETED PRACTICE QUESTION**
 
-**${examInfo.type.toUpperCase()}: Grade ${examInfo.grade} ${examInfo.subject}**
-**Date: ${examInfo.date}**
-**Focus: ${examInfo.topics}**
+**DESIGNED FOR YOUR PAINPOINT:** ${profile.specific_painpoint}
 
-**📝 Practice Question Generated:**
-${examData.mockExam?.[0]?.questionText || "Sample question ready"}
+📝 **QUESTION:**
+${
+  examData.mockExam?.[0]?.questionText ||
+  `Grade ${profile.grade} ${profile.subject} question targeting ${profile.specific_painpoint}`
+}
 
-**🗓️ Study Plan:**
-• **Today**: Review ${examInfo.topics} basics
-• **Tomorrow**: Practice questions (like above)
-• **3 days before**: Mock ${examInfo.type} 
-• **1 day before**: Quick review only
+**STRATEGIC HINT:** Look for the pattern that addresses your specific struggle!
 
-Ready to start practicing? Type "practice" or "menu" to go back! 💪`;
+Take your time. When ready, type 'solution' for the full breakdown!`;
   } catch (error) {
-    console.error("Study plan generation failed:", error);
+    console.error("Targeted question generation failed:", error);
 
-    return `🎯 **Your Study Plan for ${examInfo.subject}** 📚
+    return `🎯 **TARGETED PRACTICE QUESTION**
 
-Based on your ${examInfo.type} ${examInfo.date}, here's what I recommend:
+**DESIGNED FOR YOUR PAINPOINT:** ${profile.specific_painpoint}
 
-**📚 Focus Areas:** ${examInfo.topics}
-**📝 Daily Practice:** 30 minutes on weak topics
-**🔄 Mock Tests:** Practice past papers
-**💡 Memory Tricks:** Use our Tips & Hacks (option 3)
+Based on your struggle with "${profile.specific_painpoint}" in ${profile.subject}, here's a question that will help you practice exactly that skill.
 
-Want me to generate practice questions? Type "practice" or "menu" to explore more options! ✨`;
+**QUESTION:** Grade ${profile.grade} ${profile.subject} practice question
+
+(Custom question generation in progress...)
+
+Type 'solution' when ready, or 'menu' to go back!`;
   }
 }
 
+async function showTargetedSolution(user) {
+  const profile = user.context.painpoint_profile;
+  const question = user.context.current_question;
+
+  return `📚 **TARGETED SOLUTION & STRATEGY**
+
+**YOUR SPECIFIC PAINPOINT:** ${profile.specific_painpoint}
+
+**SOLUTION:**
+${
+  question?.solution ||
+  "Step-by-step solution targeting your specific struggle..."
+}
+
+**WHY THIS APPROACH:**
+This method directly addresses your painpoint: "${profile.specific_painpoint}"
+
+**COMMON MISTAKES TO AVOID:**
+${
+  question?.commonMistakes ||
+  "Watch out for the typical errors students make here..."
+}
+
+**STRATEGY FOR NEXT TIME:**
+${generateStrategy(profile)}
+
+Ready for another targeted question? Type 'next'
+Or type 'menu' to go back!`;
+}
+
+function generateStrategy(profile) {
+  const painpoint = profile.specific_painpoint.toLowerCase();
+
+  if (painpoint.includes("formula") && painpoint.includes("selection")) {
+    return "When choosing formulas: 1) Identify what you're solving for, 2) List what you know, 3) Pick the formula that connects them.";
+  }
+  if (painpoint.includes("lost") && painpoint.includes("start")) {
+    return "When feeling lost: 1) Read the question twice, 2) Write down what you know, 3) Identify what you need to find, 4) Work backwards from the answer.";
+  }
+  if (painpoint.includes("panic")) {
+    return "When panic hits: 1) Take 3 deep breaths, 2) Skip to easier questions first, 3) Come back with fresh eyes, 4) Trust your preparation.";
+  }
+
+  return "Build confidence by practicing similar questions repeatedly until the pattern becomes automatic.";
+}
+
+// Keep existing functions for homework and memory hacks...
 async function startHomeworkHelp(user) {
   user.current_menu = "homework_active";
   user.context = { step: "waiting_for_problem" };
@@ -476,7 +673,6 @@ async function handleHomeworkHelp(user, text) {
   );
 
   try {
-    // Call homework API
     const homeworkResponse = await fetch(
       "https://goat-edtech.vercel.app/api/index?endpoint=homework-ocr",
       {
@@ -587,7 +783,6 @@ async function handleMemoryHacksFlow(user, text) {
   if (text.toLowerCase().includes("cells")) topic = "cells";
 
   try {
-    // Call memory hacks API
     const hacksResponse = await fetch(
       "https://goat-edtech.vercel.app/api/index?endpoint=memory-hacks",
       {
@@ -633,26 +828,37 @@ I'm generating SA-specific tricks using our local culture and landmarks...
 Type another subject or "menu" to go back! 🔙`;
 }
 
-// Keep existing API endpoint handlers exactly the same
+// Keep all existing API endpoint handlers unchanged...
 async function handleMockExam(req, res, start) {
   const {
     grade = 10,
     subject = "Mathematics",
     questionCount = 1,
     topics = "general",
+    painpoint = "",
+    confidence = "intermediate",
   } = req.query;
 
   try {
     const OpenAI = require("openai");
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const examPrompt = `Generate ${questionCount} Grade ${grade} ${subject} exam question(s) on ${topics} following South African CAPS curriculum.
+    // Enhanced prompt with painpoint targeting
+    let examPrompt = `Generate ${questionCount} Grade ${grade} ${subject} exam question(s) on ${topics} following South African CAPS curriculum.`;
 
-For each question provide:
-1. Clear question text
+    if (painpoint) {
+      examPrompt += `\n\nSPECIFIC FOCUS: This question must target students struggling with "${painpoint}". Design the question to practice this exact skill.`;
+    }
+
+    if (confidence) {
+      examPrompt += `\n\nDIFFICULTY LEVEL: Adjust for ${confidence} level students.`;
+    }
+
+    examPrompt += `\n\nFor each question provide:
+1. Clear question text targeting the specific painpoint
 2. Complete step-by-step solution
-3. Common mistakes students make
-4. Examiner tips
+3. Common mistakes students make with this painpoint
+4. Examiner tips for this specific skill
 5. Marks allocated
 
 Format as JSON with questionNumber, questionText, solution, commonMistakes, examinerTips, marksAllocated.`;
@@ -666,14 +872,18 @@ Format as JSON with questionNumber, questionText, solution, commonMistakes, exam
 
     const content = response.choices[0].message.content;
 
-    // Mock exam structure
     const mockExam = [
       {
         questionNumber: 1,
-        questionText: `Grade ${grade} ${subject} question on ${topics}`,
+        questionText: `Grade ${grade} ${subject} question on ${topics}${
+          painpoint ? ` (targeting: ${painpoint})` : ""
+        }`,
         solution: content.substring(0, 200) + "...",
-        commonMistakes: "Watch for calculation errors",
-        examinerTips: "Show all working steps",
+        commonMistakes: painpoint
+          ? `Common errors when dealing with ${painpoint}`
+          : "Watch for calculation errors",
+        examinerTips:
+          "Show all working steps and address the specific painpoint",
         marksAllocated: 5,
       },
     ];
@@ -685,10 +895,13 @@ Format as JSON with questionNumber, questionText, solution, commonMistakes, exam
       grade: parseInt(grade),
       subject,
       topics,
+      painpoint,
+      confidence,
       questionCount: parseInt(questionCount),
       mockExam,
       metadata: {
         capsAligned: true,
+        painpointTargeted: !!painpoint,
         generatedBy: "OpenAI GPT-3.5-turbo",
         tokensUsed: response.usage?.total_tokens || 0,
         stored: "Content saved for reuse",
@@ -703,6 +916,7 @@ Format as JSON with questionNumber, questionText, solution, commonMistakes, exam
   }
 }
 
+// Keep other API handlers unchanged...
 async function handleHomeworkOCR(req, res, start) {
   const {
     problemText,
@@ -738,7 +952,6 @@ Provide complete step-by-step solution using CAPS methodology.`;
 
     const solution = response.choices[0].message.content;
 
-    // Generate similar problems
     const similarProblems = {
       count: similarCount,
       problems: [
