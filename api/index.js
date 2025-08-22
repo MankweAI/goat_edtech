@@ -511,10 +511,18 @@ switch (command.type) {
         console.log(`🚀 Starting Homework Help for user ${user.id}`);
 
         try {
+          console.log("🔧 About to require homework.js");
           const homeworkHelp = require("./homework.js");
-          return await homeworkHelp(req, res);
+          console.log("✅ homework.js loaded successfully");
+
+          console.log("🔧 About to call homeworkHelp function");
+          const result = await homeworkHelp(req, res);
+          console.log("✅ homeworkHelp returned:", result);
+
+          return result;
         } catch (error) {
-          console.error("Homework error:", error);
+          console.error("❌ Homework error:", error);
+          console.error("❌ Error stack:", error.stack);
           reply = "📚 Homework Help failed. Please try again.";
         }
         break;
