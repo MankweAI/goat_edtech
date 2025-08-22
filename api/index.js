@@ -4,7 +4,7 @@
  * Updated: 2025-08-21 15:39:26 UTC
  * INTEGRATION: Dynamic probing system now properly connected to entry point
  */
-const homeworkHelp = require("./homework/index");
+const homeworkHelp = require("./homework.js");
 // Enhanced user state management
 const userStates = new Map();
 
@@ -510,7 +510,7 @@ async function handleWebhook(req, res, start) {
           reply = await startAIIntelligenceGathering(user);
           break;
         case 2:
-          const homeworkHelp = require("./homework/index");
+          const homeworkHelp = require("./homework.js");
           return await homeworkHelp(req, res);
         case 3:
           reply = await startMemoryHacks(user);
