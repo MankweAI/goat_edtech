@@ -484,79 +484,74 @@ async function handleWebhook(req, res, start) {
 
   let reply = "";
 
-  console.log(
-    `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
-  );
+console.log(
+  `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
+);
 
-  switch (command.type) {
-    case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
-      reply = await handleNumberedMenuCommand(user, command.option);
-      break;
+switch (command.type) {
+  case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
+    reply = await handleNumberedMenuCommand(user, command.option);
+    break;
 
-    case GOAT_COMMANDS.FIXED_MENU_COMMAND:
-      reply = await handleFixedMenuCommand(user, command.command);
-      break;
+  case GOAT_COMMANDS.FIXED_MENU_COMMAND:
+    reply = await handleFixedMenuCommand(user, command.command);
+    break;
 
-    case GOAT_COMMANDS.HOMEWORK_HELP: // NEW
-    case GOAT_COMMANDS.HOMEWORK_UPLOAD: // NEW
-      reply = await handleIntegratedHomeworkFlow(
-        user,
-        command.text,
-        command.imageData
-      );
-      break;
-    case GOAT_COMMANDS.WELCOME:
-      reply = await showWelcomeMenu(user);
-      break;
-    case GOAT_COMMANDS.MENU_CHOICE:
-      switch (command.choice) {
-        case 1:
-          reply = await startAIIntelligenceGathering(user);
-          break;
-        case 2:
-          user.current_menu = "homework_active";
-          try {
-            const homeworkHelp = require("./homework.js");
-            return await homeworkHelp(req, res); // This bypasses the reply system
-          } catch (error) {
-            console.error("Homework error:", error);
-            reply = "📚 Homework Help failed. Please try again.";
-          }
-          break;
-        case 3:
-          reply = await startMemoryHacks(user);
-          break;
-        default:
-          reply = await showWelcomeMenu(user);
-      }
-      break;
-    case GOAT_COMMANDS.HOMEWORK_HELP: // NEW
-    case GOAT_COMMANDS.HOMEWORK_UPLOAD: // NEW
-      reply = await handleIntegratedHomeworkFlow(
-        user,
-        command.text,
-        command.imageData
-      );
-      break;
+  case GOAT_COMMANDS.WELCOME:
+    reply = await showWelcomeMenu(user);
+    break;
 
-    case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
-      reply = await handleFixedAIIntelligenceGathering(
-        user,
-        command.text,
-        command.alternative_choice
-      );
-      break;
-    case GOAT_COMMANDS.HOMEWORK_HELP:
-      reply = await handleHomeworkHelp(user, command.text);
-      break;
-    case GOAT_COMMANDS.MEMORY_HACKS:
-      reply = await handleMemoryHacksFlow(user, command.text);
-      break;
-    default:
-      console.warn(`⚠️ Unhandled command type: ${command.type}`);
-      reply = await showWelcomeMenu(user);
-      break;
-  }
+  case GOAT_COMMANDS.MENU_CHOICE:
+    switch (command.choice) {
+      case 1:
+        reply = await startAIIntelligenceGathering(user);
+        break;
+      case 2:
+        user.current_menu = "homework_active";
+        console.log(`🚀 Starting Homework Help for user ${user.id}`);
+
+        try {
+          const homeworkHelp = require("./homework.js");
+          return await homeworkHelp(req, res);
+        } catch (error) {
+          console.error("Homework error:", error);
+          reply = "📚 Homework Help failed. Please try again.";
+        }
+        break;
+      case 3:
+        reply = await startMemoryHacks(user);
+        break;
+      default:
+        reply = await showWelcomeMenu(user);
+    }
+    break;
+
+  case GOAT_COMMANDS.HOMEWORK_HELP:
+  case GOAT_COMMANDS.HOMEWORK_UPLOAD:
+    reply = await handleIntegratedHomeworkFlow(
+      user,
+      command.text,
+      command.imageData
+    );
+    break;
+
+  case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
+    reply = await handleFixedAIIntelligenceGathering(
+      user,
+      command.text,
+      command.alternative_choice
+    );
+    break;
+
+  case GOAT_COMMANDS.MEMORY_HACKS:
+    reply = await handleMemoryHacksFlow(user, command.text);
+    break;
+
+  default:
+    console.warn(`⚠️ Unhandled command type: ${command.type}`);
+    reply = await showWelcomeMenu(user);
+    break;
+}
 
   user.conversation_history.push({
     user_input: message,
