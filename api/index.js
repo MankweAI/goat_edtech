@@ -511,6 +511,19 @@ switch (command.type) {
         console.log(`🚀 Starting Homework Help for user ${user.id}`);
 
         try {
+          const homeworkHelp = require("./homework.js");
+          await homeworkHelp(req, res);
+          return; // ❌ JUST RETURN - DON'T RETURN THE RESPONSE OBJECT
+        } catch (error) {
+          console.error("❌ Homework error:", error);
+          reply = "📚 Homework Help failed. Please try again.";
+        }
+        break;
+      
+        user.current_menu = "homework_active";
+        console.log(`🚀 Starting Homework Help for user ${user.id}`);
+
+        try {
           console.log("🔧 About to require homework.js");
           const homeworkHelp = require("./homework.js");
           console.log("✅ homework.js loaded successfully");
