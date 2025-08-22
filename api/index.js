@@ -4,7 +4,7 @@
  * Updated: 2025-08-21 15:39:26 UTC
  * INTEGRATION: Dynamic probing system now properly connected to entry point
  */
-
+const homeworkHelp = require("./homework/index");
 // Enhanced user state management
 const userStates = new Map();
 
@@ -13,7 +13,8 @@ const GOAT_COMMANDS = {
   WELCOME: "welcome",
   MENU_CHOICE: "menu_choice",
   EXAM_PREP_CONVERSATION: "exam_prep_conversation",
-  HOMEWORK_HELP: "homework_help",
+  HOMEWORK_HELP: "homework_help", // NEW
+  HOMEWORK_UPLOAD: "homework_upload", // NEW
   MEMORY_HACKS: "memory_hacks",
   FIXED_MENU_COMMAND: "fixed_menu_command",
   NUMBERED_MENU_COMMAND: "numbered_menu_command",
@@ -222,7 +223,6 @@ function formatMathematicalExpression(expression) {
     .replace(/theta/g, "θ");
 }
 
-
 function formatStepByStep(content) {
   return content
     .replace(/Step (\d+):/g, "**Step $1:**")
@@ -277,6 +277,22 @@ function detectDeviceType(userAgent = "") {
 // Enhanced command parser
 function parseGoatCommand(message, userContext) {
   const text = message.toLowerCase().trim();
+
+  // NEW: Handle homework-specific states
+  if (userContext.current_menu === "homework_help") {
+    if (imageData) {
+      return {
+        type: GOAT_COMMANDS.HOMEWORK_UPLOAD,
+        imageData: imageData,
+        original_text: message,
+      };
+    } else {
+      return {
+        type: GOAT_COMMANDS.HOMEWORK_HELP,
+        text: message,
+      };
+    }
+  }
 
   if (
     /^[1234]$/.test(text) &&
@@ -341,7 +357,6 @@ function parseGoatCommand(message, userContext) {
   }
 }
 
-
 function formatGoatResponse(message, metadata = {}) {
   return {
     message,
@@ -352,7 +367,6 @@ function formatGoatResponse(message, metadata = {}) {
     ...metadata,
   };
 }
-
 
 module.exports = async (req, res) => {
   const start = Date.now();
@@ -479,6 +493,14 @@ async function handleWebhook(req, res, start) {
       reply = await handleFixedMenuCommand(user, command.command);
       break;
 
+    case GOAT_COMMANDS.HOMEWORK_HELP: // NEW
+    case GOAT_COMMANDS.HOMEWORK_UPLOAD: // NEW
+      reply = await handleIntegratedHomeworkFlow(
+        user,
+        command.text,
+        command.imageData
+      );
+      break;
     case GOAT_COMMANDS.WELCOME:
       reply = await showWelcomeMenu(user);
       break;
@@ -488,15 +510,27 @@ async function handleWebhook(req, res, start) {
           reply = await startAIIntelligenceGathering(user);
           break;
         case 2:
-          reply = await startHomeworkHelp(user);
-          break;
+          const homeworkHelp = require("./homework/index");
+          return await homeworkHelp(req, res);
         case 3:
           reply = await startMemoryHacks(user);
+          break;
+        case 4:
+          reply = await startIntegratedHomeworkHelp(user); // NEW
           break;
         default:
           reply = await showWelcomeMenu(user);
       }
       break;
+    case GOAT_COMMANDS.HOMEWORK_HELP: // NEW
+    case GOAT_COMMANDS.HOMEWORK_UPLOAD: // NEW
+      reply = await handleIntegratedHomeworkFlow(
+        user,
+        command.text,
+        command.imageData
+      );
+      break;
+
     case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
       reply = await handleFixedAIIntelligenceGathering(
         user,
@@ -549,6 +583,42 @@ async function handleWebhook(req, res, start) {
       elapsed_ms: Date.now() - start,
     })
   );
+}
+
+// NEW: Homework Help functions (add these)
+async function startIntegratedHomeworkHelp(user) {
+  user.current_menu = "homework_help";
+  user.context = {
+    hw_intel_state: "hw_awaiting_upload",
+    session_start: new Date().toISOString(),
+    questions_helped: 0,
+  };
+
+  return `📚 **Homework Help Mode** 🫶
+
+I'll help you get UNSTUCK in 30 seconds!
+
+📸 Upload homework image or 📝 type your question
+
+⚡ *Average unstuck time: 30 seconds*`;
+}
+
+async function handleIntegratedHomeworkFlow(user, text, imageData) {
+  // Route to homework system
+  const homeworkReq = {
+    method: "POST",
+    body: { psid: user.id, message: text, imageData: imageData },
+    query: { endpoint: "workflow" },
+  };
+
+  const mockRes = { json: (data) => data.message || "Processing..." };
+
+  try {
+    await homeworkHelp(homeworkReq, mockRes);
+    return mockRes.json({ message: "Homework help response" });
+  } catch (error) {
+    return "Something went wrong with homework help. Please try again.";
+  }
 }
 
 // ===== ENHANCED VISUAL SEPARATION FUNCTIONS =====
@@ -607,7 +677,6 @@ function generateEnhancedVisualMenu(aiState, deviceType = "mobile") {
   }
 }
 
-
 // ===== SUBJECT AVAILABILITY FUNCTIONS =====
 
 function checkSubjectAvailability(subjectInput) {
@@ -633,7 +702,6 @@ function checkSubjectAvailability(subjectInput) {
     key: "MATHEMATICS",
   };
 }
-
 
 // ===== INTEGRATED AI INTELLIGENCE GATHERING =====
 
@@ -1360,8 +1428,6 @@ async function analyzeResponseWithEnhancedHeuristics(userResponse, profile) {
   };
 }
 
-
-
 async function generateHeuristicInterpretedConfirmation(
   user,
   confirmationData,
@@ -1500,16 +1566,18 @@ async function handleAlternativePathChoice(user, text, alternativeChoice) {
 
 async function startGuidedDiscovery(user) {
   const profile = user.context.painpoint_profile;
-  
-  console.log(`🔍 Starting guided discovery for: ${profile.subject} ${profile.topic_struggles}`);
-  
+
+  console.log(
+    `🔍 Starting guided discovery for: ${profile.subject} ${profile.topic_struggles}`
+  );
+
   user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
   user.context.discovery_mode = true;
-  
+
   const diagnosticQuestion = await getDiagnosticQuestion(profile);
-  
+
   user.context.current_question = diagnosticQuestion;
-  
+
   const content = `🔍 **Guided Discovery Mode**
 
 Let's find your challenge together! Try this simple ${profile.topic_struggles} question:
@@ -1520,9 +1588,16 @@ ${diagnosticQuestion.questionText}
 **Don't worry about getting it right** - just try your best and tell me where you get stuck.
 
 **Type your attempt or where you're struggling.**`;
-  
-  const menu = generateEnhancedVisualMenu(AI_INTEL_STATES.GUIDED_DISCOVERY, user.preferences.device_type);
-  return formatResponseWithEnhancedSeparation(content, menu, user.preferences.device_type);
+
+  const menu = generateEnhancedVisualMenu(
+    AI_INTEL_STATES.GUIDED_DISCOVERY,
+    user.preferences.device_type
+  );
+  return formatResponseWithEnhancedSeparation(
+    content,
+    menu,
+    user.preferences.device_type
+  );
 }
 
 async function getDiagnosticQuestion(profile) {
@@ -1601,7 +1676,6 @@ ${user.context.current_question?.solution || "Step-by-step solution provided"}
   );
 }
 
-
 async function generateDynamicTargetedProbe(userResponse, profile, attempt) {
   const subject = profile.subject || "Mathematics";
   const topic = profile.topic_struggles?.toLowerCase() || "general";
@@ -1637,7 +1711,6 @@ async function generateDynamicTargetedProbe(userResponse, profile, attempt) {
   return generateHardcodedProbe(userResponse, profile, attempt);
 }
 
-
 function generateTopicSpecificProbe(topic, topicData, attempt) {
   switch (attempt) {
     case 1:
@@ -1669,7 +1742,6 @@ ${struggles}`;
   }
 }
 
-
 // HARDCODED FALLBACK (existing code for safety)
 function generateHardcodedProbe(userResponse, profile, attempt) {
   const topic = profile.topic_struggles || "the topic";
@@ -1694,7 +1766,6 @@ When you see a ${topic} problem, what's your **first thought**? Do you:
 }
 
 // ===== KEEP ALL EXISTING ANALYSIS AND CONFIRMATION FUNCTIONS =====
-
 
 async function generateImprovedPainpointConfirmation(user, painpointClarity) {
   const profile = user.context.painpoint_profile;
@@ -1763,7 +1834,6 @@ async function analyzeConfirmationResponse(userResponse) {
 
   return { confirmed: false, needs_clarification: true };
 }
-
 
 async function analyzeConfirmationResponse(userResponse) {
   const response = userResponse.toLowerCase().trim();
@@ -2032,8 +2102,6 @@ Challenge: ${struggle}
   };
 }
 
-
-
 async function handleConfirmedQuestionInteraction(user, text) {
   const lowerText = text.toLowerCase();
 
@@ -2066,15 +2134,22 @@ async function handleConfirmedQuestionInteraction(user, text) {
 async function showConfirmedTargetedSolution(user) {
   const profile = user.context.painpoint_profile;
   const question = user.context.current_question;
-  
+
   if (!question || !question.solution) {
     const content = `**No solution available.**
 
 Please generate a question first.`;
-    const menu = generateEnhancedVisualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION, user.preferences.device_type);
-    return formatResponseWithEnhancedSeparation(content, menu, user.preferences.device_type);
+    const menu = generateEnhancedVisualMenu(
+      AI_INTEL_STATES.AI_QUESTION_GENERATION,
+      user.preferences.device_type
+    );
+    return formatResponseWithEnhancedSeparation(
+      content,
+      menu,
+      user.preferences.device_type
+    );
   }
-  
+
   const content = `📚 **TARGETED SOLUTION**
 
 **For your challenge:** *${profile.specific_failure}*
@@ -2084,11 +2159,17 @@ ${question.solution}
 **🎯 Strategy:** This solution specifically addresses your struggle with "${profile.specific_failure}"
 
 **💡 Key Point:** Focus on understanding each step to overcome your specific challenge.`;
-  
-  const menu = generateEnhancedVisualMenu(AI_INTEL_STATES.AI_QUESTION_GENERATION, user.preferences.device_type);
-  return formatResponseWithEnhancedSeparation(content, menu, user.preferences.device_type);
-}
 
+  const menu = generateEnhancedVisualMenu(
+    AI_INTEL_STATES.AI_QUESTION_GENERATION,
+    user.preferences.device_type
+  );
+  return formatResponseWithEnhancedSeparation(
+    content,
+    menu,
+    user.preferences.device_type
+  );
+}
 
 // ===== MENU HANDLERS =====
 
@@ -2260,7 +2341,7 @@ async function showWelcomeMenu(user) {
 **What do you need right now?**
 
 1️⃣ 📅 Exam/Test coming 😰
-2️⃣ 📚 Homework Help 🫶
+2️⃣ 📚 Homework Help 🫶 ⚡  
 3️⃣ 🧮 Tips & Hacks
 
 Just pick a number! ✨`;
@@ -2433,9 +2514,6 @@ async function handleMockExam(req, res, start) {
     });
   }
 }
-
-
-
 
 async function handleHomeworkOCR(req, res, start) {
   const { problemText } = req.body;
