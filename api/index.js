@@ -305,14 +305,14 @@ function parseGoatCommand(message, userContext) {
     };
   }
 
-  if (/^[123]$/.test(text) && userContext.current_menu === "welcome") {
-    return {
-      type: GOAT_COMMANDS.MENU_CHOICE,
-      choice: parseInt(text),
-      action:
-        text === "1" ? "exam_prep" : text === "2" ? "homework" : "memory_hacks",
-    };
-  }
+if (/^[123]$/.test(text) && userContext.current_menu === "welcome") {
+  return {
+    type: GOAT_COMMANDS.MENU_CHOICE,
+    choice: parseInt(text),
+    action:
+      text === "1" ? "exam_prep" : text === "2" ? "homework" : "memory_hacks",
+  };
+}
 
   // Handle A, B, C options for alternative paths
   if (
@@ -484,6 +484,10 @@ async function handleWebhook(req, res, start) {
 
   let reply = "";
 
+  console.log(
+    `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
+  );
+  
   switch (command.type) {
     case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
       reply = await handleNumberedMenuCommand(user, command.option);
@@ -510,19 +514,12 @@ async function handleWebhook(req, res, start) {
           reply = await startAIIntelligenceGathering(user);
           break;
         case 2:
-      try {
-        const homeworkHelp = require("./homework.js");
-        return await homeworkHelp(req, res);
-      } catch (error) {
-        console.error('Homework routing error:', error);
-        reply = '📚 Homework Help temporarily unavailable. Please try again.';
-      }
-      break;
+          user.current_menu = "homework_active";
+          const homeworkHelp = require("./homework.js");
+          return await homeworkHelp(req, res);
+          break;
         case 3:
           reply = await startMemoryHacks(user);
-          break;
-        case 4:
-          reply = await startIntegratedHomeworkHelp(user); // NEW
           break;
         default:
           reply = await showWelcomeMenu(user);
