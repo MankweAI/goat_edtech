@@ -487,7 +487,7 @@ async function handleWebhook(req, res, start) {
   console.log(
     `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
   );
-  
+
   switch (command.type) {
     case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
       reply = await handleNumberedMenuCommand(user, command.option);
@@ -515,8 +515,13 @@ async function handleWebhook(req, res, start) {
           break;
         case 2:
           user.current_menu = "homework_active";
-          const homeworkHelp = require("./homework.js");
-          return await homeworkHelp(req, res);
+          try {
+            const homeworkHelp = require("./homework.js");
+            return await homeworkHelp(req, res); // This bypasses the reply system
+          } catch (error) {
+            console.error("Homework error:", error);
+            reply = "📚 Homework Help failed. Please try again.";
+          }
           break;
         case 3:
           reply = await startMemoryHacks(user);
