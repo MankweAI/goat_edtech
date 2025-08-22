@@ -510,8 +510,14 @@ async function handleWebhook(req, res, start) {
           reply = await startAIIntelligenceGathering(user);
           break;
         case 2:
-          const homeworkHelp = require("./homework.js");
-          return await homeworkHelp(req, res);
+      try {
+        const homeworkHelp = require("./homework.js");
+        return await homeworkHelp(req, res);
+      } catch (error) {
+        console.error('Homework routing error:', error);
+        reply = '📚 Homework Help temporarily unavailable. Please try again.';
+      }
+      break;
         case 3:
           reply = await startMemoryHacks(user);
           break;
