@@ -15,8 +15,10 @@ const MANYCHAT_STATES = {
   // Track last menu by subscriber_id
   lastMenu: new Map(),
   // Max retention time (12 hours)
-  TTL: 12 * 60 * 60 * 1000
+  TTL: 12 * 60 * 60 * 1000,
 };
+
+global.MANYCHAT_STATES = MANYCHAT_STATES;
 
 // Command types
 const GOAT_COMMANDS = {
@@ -220,7 +222,26 @@ const SUBJECT_PROBING_DATABASE = {
 };
 
 // Enhanced state tracking middleware
-trackManyState
+function trackManyState(subscriberId, state) {
+  // Track user's last command type
+  MANYCHAT_STATES.lastCommand.set(subscriberId, {
+    command: state.type,
+    timestamp: Date.now(),
+  });
+
+  // Track user's menu position
+  MANYCHAT_STATES.lastMenu.set(subscriberId, {
+    menu: state.current_menu || "welcome",
+    timestamp: Date.now(),
+  });
+
+  console.log(
+    `🔄 ManyChat state tracked: ${subscriberId} | Menu: ${
+      state.current_menu || "welcome"
+    }`
+  );
+}
+
 
 // FIXED VISUAL FORMATTING FUNCTIONS
 function formatMathematicalExpression(expression) {
@@ -270,6 +291,7 @@ function getResponsiveSeparator(deviceWidth = "mobile") {
   };
   return separators[deviceWidth] || separators.mobile;
 }
+
 
 function detectDeviceType(userAgent = "") {
   const ua = userAgent.toLowerCase();
