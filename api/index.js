@@ -14,7 +14,7 @@ const GOAT_COMMANDS = {
   MENU_CHOICE: "menu_choice",
   EXAM_PREP_CONVERSATION: "exam_prep_conversation",
   HOMEWORK_HELP: "homework_help", // NEW
-  HOMEWORK_UPLOAD: "homework_upload", // NEW
+  HOMEWORK_UPLOAD: "homework_upload",
   MEMORY_HACKS: "memory_hacks",
   FIXED_MENU_COMMAND: "fixed_menu_command",
   NUMBERED_MENU_COMMAND: "numbered_menu_command",
@@ -275,21 +275,33 @@ function detectDeviceType(userAgent = "") {
 }
 
 // Enhanced command parser
-function parseGoatCommand(message, userContext) {
-  const text = message.toLowerCase().trim();
+function parseGoatCommand(message, userContext, attachments = {}) {
+  // BUGFIX: Handle undefined message
+  const text = message?.toLowerCase().trim() || "";
 
-  // NEW: Handle homework-specific states
-  if (userContext.current_menu === "homework_help") {
-    if (imageData) {
+  // BUGFIX: Extract image data safely from attachments
+  // This fixes the ReferenceError on line 287
+  const attachmentImageData = attachments?.imageData || null;
+
+  // Handle homework-specific states with safer checks
+  if (
+    userContext.current_menu === "homework_help" ||
+    userContext.current_menu === "homework_active"
+  ) {
+    // BUGFIX: Check for image data safely
+    if (attachmentImageData) {
+      console.log(
+        `📸 Image data detected for user: ${userContext.id || "unknown"}`
+      );
       return {
         type: GOAT_COMMANDS.HOMEWORK_UPLOAD,
-        imageData: imageData,
-        original_text: message,
+        imageData: attachmentImageData,
+        original_text: message || "",
       };
     } else {
       return {
         type: GOAT_COMMANDS.HOMEWORK_HELP,
-        text: message,
+        text: message || "",
       };
     }
   }
@@ -305,14 +317,18 @@ function parseGoatCommand(message, userContext) {
     };
   }
 
-if (/^[123]$/.test(text) && userContext.current_menu === "welcome") {
-  return {
-    type: GOAT_COMMANDS.MENU_CHOICE,
-    choice: parseInt(text),
-    action:
-      text === "1" ? "exam_prep" : text === "2" ? "homework" : "memory_hacks",
-  };
-}
+  if (/^[123]$/.test(text) && userContext.current_menu === "welcome") {
+    return {
+      type: GOAT_COMMANDS.MENU_CHOICE,
+      choice: parseInt(text),
+      action:
+        text === "1"
+          ? "exam_prep"
+          : text === "2"
+          ? "homework_help"
+          : "memory_hacks",
+    };
+  }
 
   // Handle A, B, C options for alternative paths
   if (
@@ -375,7 +391,7 @@ module.exports = async (req, res) => {
     "🔧 GOAT Bot v2.0 - ENHANCED HEURISTIC FIX: AI Clarity Validation"
   );
 
-  const { query } = req;
+  const query = req.query || {};
   const endpoint = query.endpoint || "webhook";
 
   try {
@@ -414,10 +430,10 @@ async function handleWebhook(req, res, start) {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
-      webhook: "GOAT Bot - ENHANCED HEURISTIC FIX",
+      webhook: "GOAT Bot - ENHANCED IMAGE HANDLING",
       status: "Active",
-      fix: "AI clarity validation prevents vague responses from becoming painpoints",
-      progress: "100% complete - bug fixed",
+      fix: "Image handling and menu state consistency improved",
+      progress: "Phase 2 complete - bug fixes applied",
     });
   }
 
@@ -428,10 +444,18 @@ async function handleWebhook(req, res, start) {
     });
   }
 
+  // BUGFIX: Extract all possible image data formats
   const subscriberId =
     req.body.psid || req.body.subscriber_id || "default_user";
   const message = req.body.message || req.body.user_input || "";
   const userAgent = req.headers["user-agent"] || "";
+
+  // BUGFIX: Extract image data from multiple possible locations
+  const imageData =
+    req.body.imageData ||
+    (req.body.attachments && req.body.attachments.image) ||
+    (req.body.media && req.body.media.image) ||
+    null;
 
   if (!subscriberId) {
     return res.status(400).json({
@@ -440,10 +464,20 @@ async function handleWebhook(req, res, start) {
     });
   }
 
-  console.log(
-    `📥 User ${subscriberId}: "${message}" (${message.length} chars)`
-  );
+  // Log image presence
+  if (imageData) {
+    console.log(
+      `📥 User ${subscriberId}: [IMAGE UPLOAD] (${
+        typeof imageData === "string" ? imageData.length : "non-string"
+      } bytes)`
+    );
+  } else {
+    console.log(
+      `📥 User ${subscriberId}: "${message}" (${message.length} chars)`
+    );
+  }
 
+  // Initialize or get user state
   let user = userStates.get(subscriberId) || {
     id: subscriberId,
     current_menu: "welcome",
@@ -466,12 +500,18 @@ async function handleWebhook(req, res, start) {
     } | AI State: ${user.context.ai_intel_state || "none"}`
   );
 
-  const command = parseGoatCommand(message, {
-    current_menu: user.current_menu,
-    context: user.context,
-    conversation_history: user.conversation_history,
-    ai_intel_state: user.context.ai_intel_state,
-  });
+  // BUGFIX: Pass image data to command parser
+  const command = parseGoatCommand(
+    message,
+    {
+      current_menu: user.current_menu,
+      context: user.context,
+      conversation_history: user.conversation_history,
+      ai_intel_state: user.context.ai_intel_state,
+      id: user.id,
+    },
+    { imageData }
+  );
 
   console.log(`🎯 Command parsed: ${command.type}`, {
     action: command.action,
@@ -480,99 +520,122 @@ async function handleWebhook(req, res, start) {
     command: command.command,
     alternative_choice: command.alternative_choice,
     text: command.text?.substring(0, 30),
+    hasImage: !!command.imageData,
   });
 
   let reply = "";
 
-console.log(
-  `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
-);
+  console.log(
+    `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
+  );
 
-switch (command.type) {
-  case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
-    reply = await handleNumberedMenuCommand(user, command.option);
-    break;
+  switch (command.type) {
+    case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
+      reply = await handleNumberedMenuCommand(user, command.option);
+      break;
 
-  case GOAT_COMMANDS.FIXED_MENU_COMMAND:
-    reply = await handleFixedMenuCommand(user, command.command);
-    break;
+    case GOAT_COMMANDS.FIXED_MENU_COMMAND:
+      reply = await handleFixedMenuCommand(user, command.command);
+      break;
 
-  case GOAT_COMMANDS.WELCOME:
-    reply = await showWelcomeMenu(user);
-    break;
+    case GOAT_COMMANDS.WELCOME:
+      reply = await showWelcomeMenu(user);
+      break;
 
-  case GOAT_COMMANDS.MENU_CHOICE:
-    switch (command.choice) {
-      case 1:
-        reply = await startAIIntelligenceGathering(user);
-        break;
-      case 2:
-        user.current_menu = "homework_active";
-        console.log(`🚀 Starting Homework Help for user ${user.id}`);
+    case GOAT_COMMANDS.MENU_CHOICE:
+      switch (command.choice) {
+        case 1:
+          reply = await startAIIntelligenceGathering(user);
+          break;
+        case 2:
+          // BUGFIX: Consistent menu state naming
+          user.current_menu = "homework_help";
+          console.log(`🚀 Starting Homework Help for user ${user.id}`);
 
-        try {
-          const homeworkHelp = require("./homework.js");
-          await homeworkHelp(req, res);
-          return; // ❌ JUST RETURN - DON'T RETURN THE RESPONSE OBJECT
-        } catch (error) {
-          console.error("❌ Homework error:", error);
-          reply = "📚 Homework Help failed. Please try again.";
-        }
-        break;
-      
-        user.current_menu = "homework_active";
-        console.log(`🚀 Starting Homework Help for user ${user.id}`);
+          try {
+            console.log("🔧 Loading homework module");
+            // BUGFIX: Pass image data if available
+            const homeworkReq = {
+              ...req,
+              body: {
+                ...req.body,
+                psid: user.id,
+                imageData: command.imageData,
+              },
+            };
+            const homeworkResult = await homeworkHelp(homeworkReq, res);
 
-        try {
-          console.log("🔧 About to require homework.js");
-          const homeworkHelp = require("./homework.js");
-          console.log("✅ homework.js loaded successfully");
+            // If homework module handled the response, just return
+            if (homeworkResult) return;
 
-          console.log("🔧 About to call homeworkHelp function");
-          const result = await homeworkHelp(req, res);
-          console.log("✅ homeworkHelp returned:", result);
+            // Fallback in case homework module doesn't handle the response
+            reply =
+              "📚 Homework Help active. What question do you need help with?";
+          } catch (error) {
+            console.error("❌ Homework error:", error);
+            console.error("❌ Error stack:", error.stack);
+            reply = "📚 Homework Help failed. Please try again.";
+          }
+          break;
 
-          return result;
-        } catch (error) {
-          console.error("❌ Homework error:", error);
-          console.error("❌ Error stack:", error.stack);
-          reply = "📚 Homework Help failed. Please try again.";
-        }
-        break;
-      case 3:
-        reply = await startMemoryHacks(user);
-        break;
-      default:
-        reply = await showWelcomeMenu(user);
-    }
-    break;
+        case 3:
+          reply = await startMemoryHacks(user);
+          break;
+        default:
+          reply = await showWelcomeMenu(user);
+      }
+      break;
 
-  case GOAT_COMMANDS.HOMEWORK_HELP:
-  case GOAT_COMMANDS.HOMEWORK_UPLOAD:
-    reply = await handleIntegratedHomeworkFlow(
-      user,
-      command.text,
-      command.imageData
-    );
-    break;
+    case GOAT_COMMANDS.HOMEWORK_HELP:
+      user.current_menu = "homework_help"; // BUGFIX: Ensure consistent menu state
+      try {
+        // Forward to homework help module
+        return await homeworkHelp(req, res);
+      } catch (error) {
+        console.error("❌ Homework help error:", error);
+        reply = "📚 Homework Help failed. Please try again.";
+      }
+      break;
+    case GOAT_COMMANDS.HOMEWORK_UPLOAD:
+      try {
+        console.log(`📸 Processing image upload for user ${user.id}`);
+        user.current_menu = "homework_help";
 
-  case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
-    reply = await handleFixedAIIntelligenceGathering(
-      user,
-      command.text,
-      command.alternative_choice
-    );
-    break;
+        // Create modified request with image data
+        const homeworkReq = {
+          ...req,
+          body: {
+            ...req.body,
+            psid: user.id,
+            imageData: command.imageData,
+          },
+        };
 
-  case GOAT_COMMANDS.MEMORY_HACKS:
-    reply = await handleMemoryHacksFlow(user, command.text);
-    break;
+        return await homeworkHelp(homeworkReq, res);
+      } catch (error) {
+        console.error("❌ Image upload error:", error);
+        reply =
+          "📸 Image upload failed. Please try again or type your question.";
+      }
+      break;
 
-  default:
-    console.warn(`⚠️ Unhandled command type: ${command.type}`);
-    reply = await showWelcomeMenu(user);
-    break;
-}
+    case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
+      reply = await handleFixedAIIntelligenceGathering(
+        user,
+        command.text,
+        command.alternative_choice
+      );
+      break;
+
+    case GOAT_COMMANDS.MEMORY_HACKS:
+      reply = await handleMemoryHacksFlow(user, command.text);
+      break;
+
+    default:
+      console.warn(`⚠️ Unhandled command type: ${command.type}`);
+      reply = await showWelcomeMenu(user);
+      break;
+  }
 
   user.conversation_history.push({
     user_input: message,
