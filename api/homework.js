@@ -254,6 +254,13 @@ class ConsolidatedHomeworkHelp {
     const userId = psid || "anonymous";
     const text = message || user_input || "";
 
+    const formatResponse = (message, status = "success") => {
+      return {
+        message,
+        status,
+        echo: message, // Add the required echo field for ManyChat
+      };
+    };
     try {
       let user = this.getOrCreateUser(userId);
 
@@ -277,30 +284,38 @@ class ConsolidatedHomeworkHelp {
         }
 
         try {
-          return await this.handleImageUpload(user, imageData, res);
+          return await this.handleImageUpload(
+            user,
+            imageData,
+            res,
+            formatResponse
+          );
         } catch (imageError) {
           console.error("📸 Image processing error:", imageError);
-          return res.json({
-            message:
+          return res.json(
+            formatResponse(
               "Sorry, I had trouble processing your image. Could you try sending a clearer photo or type your question?",
-            status: "error",
-          });
+              "error"
+            )
+          );
         }
       }
 
       // Handle text input
       if (text) {
-        return await this.handleTextInput(user, text, res);
+        return await this.handleTextInput(user, text, res, formatResponse);
       }
 
       // Default welcome
-      return this.sendWelcomeMessage(res);
+      return this.sendWelcomeMessage(res, formatResponse);
     } catch (error) {
       console.error("Homework help error:", error);
-      return res.json({
-        message: "Sorry, something went wrong. Please try again.",
-        status: "error",
-      });
+      return res.json(
+        formatResponse(
+          "Sorry, something went wrong. Please try again.",
+          "error"
+        )
+      );
     }
   }
 
@@ -963,12 +978,10 @@ Generate a brief educational hint that guides them toward the solution WITHOUT g
     return user;
   }
 
-  sendWelcomeMessage(res) {
-    return res.json({
-      message:
-        "📚 **Homework Help Ready!**\n\n• 📸 Upload homework image\n• 📝 Type your question\n• 💭 Tell me what you're stuck on\n\nHow can I help you get unstuck?",
-      status: "success",
-    });
+  sendWelcomeMessage(res, formatResponse) {
+    const message =
+      "📚 **Homework Help Ready!**\n\n• 📸 Upload homework image\n• 📝 Type your question\n• 💭 Tell me what you're stuck on\n\nHow can I help you get unstuck?";
+    return res.json(formatResponse(message));
   }
 
   extractNumbers(questionText) {
