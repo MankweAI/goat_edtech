@@ -1011,6 +1011,54 @@ Generate a brief educational hint that guides them toward the solution WITHOUT g
   }
 }
 
+class ManyCompatResponse {
+  constructor(originalRes) {
+    this.originalRes = originalRes;
+  }
+
+  // Intercept all JSON responses to ensure they have the echo field
+  json(data) {
+    // Ensure data is an object
+    const responseData =
+      typeof data === "object" ? data : { message: String(data) };
+
+    // Ensure required fields exist
+    if (!responseData.hasOwnProperty("status")) {
+      responseData.status = responseData.error ? "error" : "success";
+    }
+
+    // CRITICAL: Add echo field for ManyChat
+    if (
+      !responseData.hasOwnProperty("echo") &&
+      responseData.hasOwnProperty("message")
+    ) {
+      responseData.echo = responseData.message;
+    }
+
+    // Add timestamp if not present
+    if (!responseData.hasOwnProperty("timestamp")) {
+      responseData.timestamp = new Date().toISOString();
+    }
+
+    // Log the formatted response for debugging
+    console.log(
+      `🔄 Sending formatted response: ${JSON.stringify(responseData).substring(
+        0,
+        100
+      )}...`
+    );
+
+    // Send the enhanced response
+    return this.originalRes.json(responseData);
+  }
+
+  // Forward status method
+  status(code) {
+    this.originalRes.status(code);
+    return this;
+  }
+}
+
 // Memory management to prevent leaks
 setInterval(() => {
   const now = Date.now();
@@ -1043,9 +1091,34 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000); // Run cleanup every hour
 
+
+
+
+
+
 // Main export function
 module.exports = async (req, res) => {
-  const homeworkHelper = new ConsolidatedHomeworkHelp();
-  await homeworkHelper.processHomeworkRequest(req, res);
-  return true; // Signal that we've handled the response
+  try {
+    // Create interceptor that adds ManyChat compatibility
+    const manyCompatRes = new ManyCompatResponse(res);
+
+    // Process request with interceptor
+    const homeworkHelper = new ConsolidatedHomeworkHelp();
+    await homeworkHelper.processHomeworkRequest(req, manyCompatRes);
+
+    return true; // Signal that we've handled the response
+  } catch (finalError) {
+    // Last-resort error handler
+    console.error("CRITICAL ERROR:", finalError);
+
+    // Even in case of critical error, format properly for ManyChat
+    res.json({
+      message: "Sorry, something went wrong. Please try again later.",
+      status: "error",
+      echo: "Sorry, something went wrong. Please try again later.",
+      error: finalError.message,
+    });
+
+    return true; // Signal that error was handled
+  }
 };
