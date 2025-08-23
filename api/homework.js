@@ -1096,11 +1096,23 @@ setInterval(() => {
 
 
 
-// Main export function
 module.exports = async (req, res) => {
   try {
     // Create interceptor that adds ManyChat compatibility
     const manyCompatRes = new ManyCompatResponse(res);
+
+    // CRITICAL FIX: Track current menu state in ManyChat tracking
+    const subscriberId =
+      req.body.psid || req.body.subscriber_id || "default_user";
+    if (global.MANYCHAT_STATES && subscriberId) {
+      global.MANYCHAT_STATES.lastMenu.set(subscriberId, {
+        menu: "homework_help",
+        timestamp: Date.now(),
+      });
+      console.log(
+        `🔄 Homework.js updated menu state: ${subscriberId} -> homework_help`
+      );
+    }
 
     // Process request with interceptor
     const homeworkHelper = new ConsolidatedHomeworkHelp();
@@ -1108,7 +1120,7 @@ module.exports = async (req, res) => {
 
     return true; // Signal that we've handled the response
   } catch (finalError) {
-    // Last-resort error handler
+    // Last-resort error handler with proper formatting
     console.error("CRITICAL ERROR:", finalError);
 
     // Even in case of critical error, format properly for ManyChat
