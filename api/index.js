@@ -420,60 +420,101 @@ function parseGoatCommand(message, userContext, attachments = {}) {
 }
 
 function formatGoatResponse(message, metadata = {}) {
+  const safeMessage =
+    message || "Sorry, I couldn't generate a response. Please try again.";
   return {
-    message,
+    message: safeMessage,
     status: "success",
-    echo: message,
+    echo: safeMessage,
     timestamp: new Date().toISOString(),
     user: "sophoniagoat",
     ...metadata,
   };
 }
 
+// Make MANYCHAT_STATES available globally for other modules
+global.MANYCHAT_STATES = MANYCHAT_STATES;
+
+
 module.exports = async (req, res) => {
   const start = Date.now();
-
   console.log(
-    "🔧 GOAT Bot v2.0 - ENHANCED HEURISTIC FIX: AI Clarity Validation"
+    `📩 ${req.method} request to ${
+      req.url || "/api/index"
+    } | ${new Date().toISOString()}`
   );
 
-  const query = req.query || {};
-  const endpoint = query.endpoint || "webhook";
-
   try {
+    const query = req.query || {};
+    const endpoint = query.endpoint || "webhook";
+
+    let result;
     switch (endpoint) {
       case "webhook":
-        return await handleWebhook(req, res, start);
+        result = await handleWebhook(req, res, start);
+        break;
       case "mock-exam":
-        return await handleMockExam(req, res, start);
+        result = await handleMockExam(req, res, start);
+        break;
       case "homework-ocr":
-        return await handleHomeworkOCR(req, res, start);
+        result = await handleHomeworkOCR(req, res, start);
+        break;
       case "memory-hacks":
-        return await handleMemoryHacks(req, res, start);
+        result = await handleMemoryHacks(req, res, start);
+        break;
       case "database-test":
-        return await handleDatabaseTest(req, res, start);
+        result = await handleDatabaseTest(req, res, start);
+        break;
       case "openai-test":
-        return await handleOpenAITest(req, res, start);
+        result = await handleOpenAITest(req, res, start);
+        break;
       default:
-        return await handleWebhook(req, res, start);
+        result = await handleWebhook(req, res, start);
     }
+
+    // If no response has been sent yet, send a fallback
+    if (!res.headersSent && !result) {
+      console.log("⚠️ No response sent - using fallback");
+      return res.status(200).json({
+        message: "Request processed, but no specific response was generated.",
+        status: "success",
+        echo: "Request processed, but no specific response was generated.",
+        elapsed_ms: Date.now() - start,
+        user: "sophoniagoat",
+      });
+    }
+
+    return result;
   } catch (error) {
-    console.error("❌ GOAT Bot error:", error);
-    return res.status(500).json({
-      message:
-        "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
-      status: "error",
-      echo: "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
-      error: error.message,
-      elapsed_ms: Date.now() - start,
-      user: "sophoniagoat",
-    });
+    console.error("❌ GOAT Bot fatal error:", error);
+
+    // Last-resort error handling
+    if (!res.headersSent) {
+      return res.status(500).json({
+        message:
+          "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
+        status: "error",
+        echo: "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
+        error: error.message,
+        elapsed_ms: Date.now() - start,
+        user: "sophoniagoat",
+      });
+    }
   }
 };
 
 async function handleWebhook(req, res, start) {
-  // GET handler remains the same...
+  // GET handler for health check
+  if (req.method === "GET") {
+    return res.status(200).json({
+      status: "OK",
+      message: "GOAT Bot webhook is operational",
+      echo: "GOAT Bot webhook is operational",
+      timestamp: new Date().toISOString(),
+    });
+  }
 
+  // Method validation
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Only POST requests supported",
@@ -481,23 +522,27 @@ async function handleWebhook(req, res, start) {
     });
   }
 
-  // BUGFIX: Extract all possible image data formats safely
+  // Extract request data safely
+  console.log("📥 Request body:", JSON.stringify(req.body).substring(0, 200));
   const subscriberId =
     req.body.psid || req.body.subscriber_id || "default_user";
   const message = req.body.message || req.body.user_input || "";
   const userAgent = req.headers["user-agent"] || "";
+  console.log(
+    `📥 User ${subscriberId}: "${message}" (${message.length} chars)`
+  );
 
-  // BUGFIX: Safely extract image data from multiple possible locations
+  // Extract image data safely
   const imageData =
     req.body.imageData ||
     (req.body.attachments && req.body.attachments.image) ||
     (req.body.media && req.body.media.image) ||
     null;
 
-  // CRITICAL FIX: Check previous menu state before creating new
+  // Check previous menu state
   const lastMenu = MANYCHAT_STATES.lastMenu.get(subscriberId);
 
-  // Initialize or get user state with potential menu preservation
+  // Initialize user state with menu preservation
   let user = userStates.get(subscriberId) || {
     id: subscriberId,
     current_menu: (lastMenu && lastMenu.menu) || "welcome",
@@ -514,7 +559,7 @@ async function handleWebhook(req, res, start) {
 
   user.preferences.device_type = detectDeviceType(userAgent);
 
-  // CRITICAL FIX: Create enhanced context for command parsing
+  // Enhanced context for command parsing
   const enhancedContext = {
     current_menu: user.current_menu,
     context: user.context,
@@ -523,10 +568,11 @@ async function handleWebhook(req, res, start) {
     id: user.id,
   };
 
-  // Pass enhanced context to command parser
+  // Parse command with enhanced context
   const command = parseGoatCommand(message, enhancedContext, { imageData });
+  console.log(`🎯 Command parsed:`, command);
 
-  // CRITICAL FIX: Update user's menu state based on command parsing result
+  // Update user's menu state
   if (command.current_menu) {
     user.current_menu = command.current_menu;
   }
@@ -537,9 +583,148 @@ async function handleWebhook(req, res, start) {
     current_menu: user.current_menu,
   });
 
-  // Rest of the function remains the same...
-  // Just ensure we update the userStates map at the end
-  userStates.set(subscriberId, user);
+  // CRITICAL FIX: Complete response handling based on command type
+  let reply = "";
+
+  try {
+    // Process command based on type
+    switch (command.type) {
+      case GOAT_COMMANDS.WELCOME:
+        reply = await showWelcomeMenu(user);
+        break;
+
+      case GOAT_COMMANDS.MENU_CHOICE:
+        console.log(
+          `🔍 Menu choice: ${command.choice} | Type: ${command.type} | Current menu: ${user.current_menu}`
+        );
+        if (command.choice === 1) {
+          // Exam prep
+          reply = await startAIIntelligenceGathering(user);
+        } else if (command.choice === 2) {
+          // Homework help
+          console.log("🚀 Starting Homework Help for user", user.id);
+          try {
+            console.log("🔧 Loading homework module");
+            // BUGFIX: Pass image data if available
+            const homeworkReq = {
+              ...req,
+              body: {
+                ...req.body,
+                psid: user.id,
+                imageData: command.imageData,
+              },
+            };
+            const homeworkResult = await homeworkHelp(homeworkReq, res);
+
+            // If homework module handled the response, just return
+            if (homeworkResult) return;
+
+            // Fallback in case homework module doesn't handle the response
+            reply =
+              "📚 Homework Help active. What question do you need help with?";
+          } catch (error) {
+            console.error("❌ Homework error:", error);
+            console.error("❌ Error stack:", error.stack);
+            reply = "📚 Homework Help failed. Please try again.";
+          }
+          break;
+        } else if (command.choice === 3) {
+          // Memory hacks
+          reply = await startMemoryHacks(user);
+        } else {
+          // Invalid choice
+          reply = await showWelcomeMenu(user);
+        }
+        break;
+
+      case GOAT_COMMANDS.HOMEWORK_HELP:
+      case GOAT_COMMANDS.HOMEWORK_UPLOAD:
+        console.log("📚 Homework request:", command.type);
+        try {
+          const homeworkReq = {
+            ...req,
+            body: {
+              ...req.body,
+              psid: user.id,
+              message: command.text,
+              imageData: command.imageData,
+            },
+          };
+          const homeworkResult = await homeworkHelp(homeworkReq, res);
+
+          // If homework module handled the response, just return
+          if (homeworkResult) return;
+
+          // Fallback in case homework module doesn't handle the response
+          reply = "📚 Processing your homework question...";
+        } catch (error) {
+          console.error("❌ Homework processing error:", error);
+          reply =
+            "📚 Sorry, there was an error processing your homework question. Please try again.";
+        }
+        break;
+
+      case GOAT_COMMANDS.EXAM_PREP_CONVERSATION:
+        reply = await handleFixedAIIntelligenceGathering(
+          user,
+          command.text,
+          command.alternative_choice
+        );
+        break;
+
+      case GOAT_COMMANDS.NUMBERED_MENU_COMMAND:
+        reply = await handleNumberedMenuCommand(user, command.option);
+        break;
+
+      case GOAT_COMMANDS.FIXED_MENU_COMMAND:
+        reply = await handleFixedMenuCommand(user, command.command);
+        break;
+
+      case GOAT_COMMANDS.MEMORY_HACKS:
+        reply = await handleMemoryHacksFlow(user, command.text);
+        break;
+
+      default:
+        // Default to welcome menu
+        reply = await showWelcomeMenu(user);
+    }
+
+    // Save updated user state
+    userStates.set(subscriberId, user);
+
+    // CRITICAL FIX: Ensure response is sent
+    if (!res.headersSent) {
+      console.log(
+        `📤 Sending response to ${subscriberId}: "${reply.substring(0, 50)}..."`
+      );
+      return res.status(200).json({
+        message: reply,
+        status: "success",
+        echo: reply,
+        timestamp: new Date().toISOString(),
+        elapsed_ms: Date.now() - start,
+        user: "sophoniagoat",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Command processing error:", error);
+
+    // CRITICAL FIX: Ensure error response is sent
+    if (!res.headersSent) {
+      const errorMessage = `Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄 (${error.message})`;
+      console.log(
+        `📤 Sending error response: "${errorMessage.substring(0, 50)}..."`
+      );
+      return res.status(200).json({
+        message: errorMessage,
+        status: "error",
+        echo: errorMessage,
+        error: error.message,
+        elapsed_ms: Date.now() - start,
+        user: "sophoniagoat",
+      });
+    }
+  }
 }
 
 // Add memory cleanup for ManyChat state
