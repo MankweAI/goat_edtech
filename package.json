@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
-    "test": "node test-homework.js",
-    "test:image": "node test-image-upload.js",
-    "setup:tests": "node create-test-image.js"
+    "test": "jest --detectOpenHandles",
+    "test:unit": "jest tests/unit --detectOpenHandles",
+    "test:e2e": "jest tests/e2e --detectOpenHandles",
+    "test:integration": "jest tests/integration --detectOpenHandles",
+    "coverage": "jest --coverage --detectOpenHandles"
   },
   "dependencies": {
     "@google-cloud/vision": "^3.1.4",
@@ -17,6 +19,9 @@
     "multer": "^1.4.5-lts.1",
     "openai": "^5.13.1",
     "sharp": "^0.32.6"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   },
   "engines": {
     "node": ">=18.0.0"
