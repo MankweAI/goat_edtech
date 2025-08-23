@@ -1033,5 +1033,6 @@ setInterval(() => {
 // Main export function
 module.exports = async (req, res) => {
   const homeworkHelper = new ConsolidatedHomeworkHelp();
-  return await homeworkHelper.processHomeworkRequest(req, res);
+  await homeworkHelper.processHomeworkRequest(req, res);
+  return true; // Signal that we've handled the response
 };
