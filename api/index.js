@@ -1,6 +1,6 @@
 /**
  * GOAT Bot 2.0 - Main Router
- * Updated: 2025-08-24 12:40:00 UTC
+ * Updated: 2025-08-24 13:05:00 UTC
  * Developer: DithetoMokgabudi
  * REFACTORING: Modular architecture using new lib structure
  */
@@ -143,10 +143,9 @@ async function handleWebhook(req, res, start) {
     userStates.set(subscriberId, user);
   }
 
-  // NEW: If we have any image, route to homework handler and pass through
+  // If we have any image, route to homework handler and pass through
   if (imageInfo) {
     console.log(`🖼️ Image detected, routing to homework handler`);
-    // Attach to request body for downstream processors
     req.body.has_image = true;
     req.body.imageInfo = imageInfo;
     if (imageInfo.type === "direct") {
@@ -154,13 +153,27 @@ async function handleWebhook(req, res, start) {
     } else if (imageInfo.type === "url") {
       req.body.imageUrl = imageInfo.data; // URL to fetch
     }
-    // Ensure menu is set for consistent flow
     user.current_menu = "homework_help";
     userStates.set(subscriberId, user);
     return await homeworkHelp(req, res);
   }
 
-  // Conversational fallback: If in homework and user typed a direct question, route straight to homework
+  // QUESTION-FIRST ROUTING (fix): Always honor a direct question by sending it to Homework Help,
+  // even if menu state was lost between requests (serverless cold start).
+  if (
+    typeof message === "string" &&
+    message.trim() &&
+    isLikelyQuestion(message)
+  ) {
+    console.log(
+      "🧭 Detected a direct question -> routing to homeworkHelp (question-first)"
+    );
+    user.current_menu = "homework_help";
+    userStates.set(subscriberId, user);
+    return await homeworkHelp(req, res);
+  }
+
+  // Conversational fallback: If in homework and user typed anything that looks like a question, route to homework
   if (
     (user.current_menu === "homework_help" ||
       (lastMenuEntry && lastMenuEntry.menu === "homework_help")) &&
@@ -182,11 +195,9 @@ async function handleWebhook(req, res, start) {
   switch (command.type) {
     case "homework_help":
     case "homework_upload": {
-      // Persist menu state to avoid losing context on next message
       user.current_menu = "homework_help";
       userStates.set(subscriberId, user);
 
-      // If parser found image, forward it as well
       if (command.hasImage) {
         req.body.has_image = true;
         if (command.imageInfo) req.body.imageInfo = command.imageInfo;
@@ -225,7 +236,6 @@ async function handleWebhook(req, res, start) {
         userStates.set(subscriberId, user);
         return await memoryHacks(req, res);
       }
-      // Fall through to default for invalid choices
       break;
     }
 
@@ -236,7 +246,6 @@ async function handleWebhook(req, res, start) {
         return await homeworkHelp(req, res);
       }
 
-      // Show welcome menu
       const welcomeResponse = await showWelcomeMenu(user);
       userStates.set(subscriberId, user);
       return res.status(200).json(formatGoatResponse(welcomeResponse));
