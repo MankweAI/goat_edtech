@@ -78,5 +78,41 @@ describe("Command Processing Module Tests", () => {
     expect(imageInfo.type).toBe("url");
     expect(imageInfo.data).toBe("https://example.com/image.jpg");
   });
-});
 
+  test("extractImageData handles ManyChat message attachment format", () => {
+    const mockReq = {
+      body: {
+        message: {
+          attachments: [
+            {
+              type: "image",
+              payload: {
+                url: "https://example.com/image.jpg",
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const imageInfo = extractImageData(mockReq);
+
+    expect(imageInfo).toBeDefined();
+    expect(imageInfo.type).toBe("direct");
+    expect(imageInfo.data).toBe("https://example.com/image.jpg");
+  });
+
+  test("extractImageData handles ManyChat event flags", () => {
+    const mockReq = {
+      body: {
+        has_attachment: true,
+        event_type: "image_received",
+      },
+    };
+
+    const imageInfo = extractImageData(mockReq);
+
+    expect(imageInfo).toBeDefined();
+    expect(imageInfo.type).toBe("pending");
+  });
+});
