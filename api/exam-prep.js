@@ -17,11 +17,11 @@ const {
   formatResponseWithEnhancedSeparation,
 } = require("../lib/utils/formatting");
 
+// Update the main module.exports function
 module.exports = async (req, res) => {
   try {
     const manyCompatRes = new ManyCompatResponse(res);
-    const subscriberId =
-      req.body.psid || req.body.subscriber_id || "default_user";
+    const subscriberId = req.body.psid || req.body.subscriber_id || "default_user";
     const message = req.body.message || req.body.user_input || "";
 
     let user = userStates.get(subscriberId) || {
@@ -44,26 +44,18 @@ module.exports = async (req, res) => {
       return await handleMockExamGeneration(req, manyCompatRes);
     }
 
-    if (
-      user.context?.painpoint_confirmed &&
-      (message.toLowerCase().includes("question") ||
-        message.toLowerCase().includes("test"))
-    ) {
-      const questionResult = await generateTargetedQuestion(user);
+    // FIX: Handle user response based on current state
+    if (user.context?.ai_intel_state) {
+      const response = await processUserResponse(user, message);
       userStates.set(subscriberId, user);
-      return manyCompatRes.json({ message: questionResult, status: "success" });
+      return manyCompatRes.json({ message: response, status: "success" });
     }
 
+    // Initial entry point - start intelligence gathering
     const response = await startAIIntelligenceGathering(user);
-
-    // Ensure menu stays in exam prep
     user.current_menu = "exam_prep_conversation";
     userStates.set(subscriberId, user);
-    trackManyState(subscriberId, {
-      type: "exam_prep_conversation",
-      current_menu: "exam_prep_conversation",
-    });
-
+    
     return manyCompatRes.json({
       message: response,
       status: "success",
@@ -71,15 +63,13 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error("Exam prep error:", error);
     return res.json({
-      message:
-        "Sorry, I encountered an error with exam prep. Please try again.",
+      message: "Sorry, I encountered an error with exam prep. Please try again.",
       status: "error",
       echo: "Sorry, I encountered an error with exam prep. Please try again.",
       error: error.message,
     });
   }
 };
-
 // Generate a targeted question based on user's painpoint profile
 async function generateTargetedQuestion(user) {
   const profile = user.context.painpoint_profile;
