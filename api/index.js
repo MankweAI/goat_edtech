@@ -1,6 +1,6 @@
 /**
  * GOAT Bot 2.0 - Main Router
- * Updated: 2025-08-23 15:39:01 UTC
+ * Updated: 2025-08-24 10:12:00 UTC
  * Developer: DithetoMokgabudi
  * REFACTORING: Modular architecture using new lib structure
  */
@@ -109,16 +109,20 @@ async function handleWebhook(req, res, start) {
     last_active: new Date().toISOString(),
   };
 
-  // If we have an image and user was previously in homework mode, route directly to homework
-  if (
-    imageInfo &&
-    (user.current_menu === "homework_help" ||
-      MANYCHAT_STATES.lastMenu.get(subscriberId)?.menu === "homework_help")
-  ) {
-    console.log(
-      `🖼️ Image detected for user in homework mode, routing to homework handler`
-    );
-    user.current_menu = "homework_help"; // Ensure current_menu is set correctly
+  // NEW: If we have any image, route to homework handler and pass through
+  if (imageInfo) {
+    console.log(`🖼️ Image detected, routing to homework handler`);
+    // Attach to request body for downstream processors
+    req.body.has_image = true;
+    req.body.imageInfo = imageInfo;
+    if (imageInfo.type === "direct") {
+      req.body.imageData = imageInfo.data; // base64
+    } else if (imageInfo.type === "url") {
+      req.body.imageUrl = imageInfo.data; // URL to fetch
+    }
+    // Ensure menu is set for consistent flow
+    user.current_menu = "homework_help";
+    userStates.set(subscriberId, user);
     return await homeworkHelp(req, res);
   }
 
@@ -130,6 +134,13 @@ async function handleWebhook(req, res, start) {
   switch (command.type) {
     case "homework_help":
     case "homework_upload":
+      // If parser found image, forward it as well
+      if (command.hasImage) {
+        req.body.has_image = true;
+        if (command.imageInfo) req.body.imageInfo = command.imageInfo;
+        if (command.imageData) req.body.imageData = command.imageData;
+        if (command.imageUrl) req.body.imageUrl = command.imageUrl;
+      }
       return await homeworkHelp(req, res);
 
     case "exam_prep_conversation":
