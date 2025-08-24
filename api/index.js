@@ -1,6 +1,6 @@
 /**
  * GOAT Bot 2.0 - Main Router
- * Updated: 2025-08-24 13:05:00 UTC
+ * Updated: 2025-08-24 13:35:00 UTC
  * Developer: DithetoMokgabudi
  * REFACTORING: Modular architecture using new lib structure
  */
@@ -10,7 +10,6 @@ const {
   userStates,
   MANYCHAT_STATES,
   setupStateCleanup,
-  trackManyState,
 } = require("../lib/core/state");
 const { extractImageData, parseGoatCommand } = require("../lib/core/commands");
 const { formatGoatResponse } = require("../lib/core/responses");
@@ -53,7 +52,6 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error("❌ GOAT Bot fatal error:", error);
 
-    // Last-resort error handling
     if (!res.headersSent) {
       return res.status(500).json(
         formatGoatResponse(
@@ -68,26 +66,6 @@ module.exports = async (req, res) => {
     }
   }
 };
-
-// Helper: lightweight question detector to keep bot conversational
-function isLikelyQuestion(text = "") {
-  const t = String(text).trim().toLowerCase();
-  if (!t) return false;
-  if (t.endsWith("?")) return true;
-  return (
-    t.startsWith("what ") ||
-    t.startsWith("what's ") ||
-    t.startsWith("why ") ||
-    t.startsWith("how ") ||
-    t.startsWith("when ") ||
-    t.startsWith("where ") ||
-    t.startsWith("who ") ||
-    t.startsWith("explain ") ||
-    t.startsWith("define ") ||
-    t.startsWith("describe ") ||
-    t.includes("difference between")
-  );
-}
 
 // Main webhook handler - determines which feature to route to
 async function handleWebhook(req, res, start) {
@@ -158,35 +136,6 @@ async function handleWebhook(req, res, start) {
     return await homeworkHelp(req, res);
   }
 
-  // QUESTION-FIRST ROUTING (fix): Always honor a direct question by sending it to Homework Help,
-  // even if menu state was lost between requests (serverless cold start).
-  if (
-    typeof message === "string" &&
-    message.trim() &&
-    isLikelyQuestion(message)
-  ) {
-    console.log(
-      "🧭 Detected a direct question -> routing to homeworkHelp (question-first)"
-    );
-    user.current_menu = "homework_help";
-    userStates.set(subscriberId, user);
-    return await homeworkHelp(req, res);
-  }
-
-  // Conversational fallback: If in homework and user typed anything that looks like a question, route to homework
-  if (
-    (user.current_menu === "homework_help" ||
-      (lastMenuEntry && lastMenuEntry.menu === "homework_help")) &&
-    typeof message === "string" &&
-    message.trim() &&
-    isLikelyQuestion(message)
-  ) {
-    console.log(
-      "🧭 Direct typed question detected in homework context -> routing to homeworkHelp"
-    );
-    return await homeworkHelp(req, res);
-  }
-
   // Parse the command
   const command = parseGoatCommand(message, user, { imageInfo });
   console.log(`🎯 Command parsed:`, command.type);
@@ -241,7 +190,7 @@ async function handleWebhook(req, res, start) {
 
     case "welcome":
     default: {
-      // If ManyChat says the user was in homework, keep them there instead of bouncing to Welcome
+      // If ManyChat says the user was in homework, keep them there
       if (user.current_menu === "homework_help") {
         return await homeworkHelp(req, res);
       }
