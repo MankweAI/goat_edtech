@@ -1,7 +1,26 @@
 /**
  * Monitoring Endpoint
  * User: sophoniagoat
+ * Updated: 2025-08-24 10:42:00 UTC
  */
+
+function isRunningOnGCP() {
+  return Boolean(
+    process.env.K_SERVICE ||
+      process.env.GAE_ENV ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      process.env.GCE_METADATA_HOST
+  );
+}
+
+function visionConfigured() {
+  const hasEnv =
+    !!process.env.GOOGLE_VISION_CREDENTIALS_BASE64 ||
+    !!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+    !!process.env.GCP_CREDS_JSON ||
+    !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  return hasEnv || isRunningOnGCP();
+}
 
 module.exports = (req, res) => {
   const { check } = req.query;
@@ -13,8 +32,10 @@ module.exports = (req, res) => {
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
       check: "database",
-      status: "not_configured_yet",
-      message: "Database will be configured in Phase 1",
+      status:
+        process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+          ? "configured"
+          : "not_configured",
       provider: "Supabase",
       readyForSetup: true,
     });
@@ -23,10 +44,13 @@ module.exports = (req, res) => {
       timestamp: new Date().toISOString(),
       user: "sophoniagoat",
       check: "services",
-      openai: "not_configured_yet",
-      googleVision: "not_configured_yet",
-      supabase: "not_configured_yet",
-      message: "External services will be configured in Phase 1",
+      openai: process.env.OPENAI_API_KEY ? "configured" : "not_configured",
+      googleVision: visionConfigured() ? "configured" : "not_configured",
+      supabase:
+        process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+          ? "configured"
+          : "not_configured",
+      message: "External services status",
     });
   } else {
     res.status(200).json({
