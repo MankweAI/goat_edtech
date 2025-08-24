@@ -1,6 +1,6 @@
 /**
  * GOAT Bot 2.0 - Main Router
- * Updated: 2025-08-24 10:12:00 UTC
+ * Updated: 2025-08-24 12:40:00 UTC
  * Developer: DithetoMokgabudi
  * REFACTORING: Modular architecture using new lib structure
  */
@@ -69,6 +69,26 @@ module.exports = async (req, res) => {
   }
 };
 
+// Helper: lightweight question detector to keep bot conversational
+function isLikelyQuestion(text = "") {
+  const t = String(text).trim().toLowerCase();
+  if (!t) return false;
+  if (t.endsWith("?")) return true;
+  return (
+    t.startsWith("what ") ||
+    t.startsWith("what's ") ||
+    t.startsWith("why ") ||
+    t.startsWith("how ") ||
+    t.startsWith("when ") ||
+    t.startsWith("where ") ||
+    t.startsWith("who ") ||
+    t.startsWith("explain ") ||
+    t.startsWith("define ") ||
+    t.startsWith("describe ") ||
+    t.includes("difference between")
+  );
+}
+
 // Main webhook handler - determines which feature to route to
 async function handleWebhook(req, res, start) {
   // GET handler for health check
@@ -109,6 +129,20 @@ async function handleWebhook(req, res, start) {
     last_active: new Date().toISOString(),
   };
 
+  // Reconcile with ManyChat lastMenu tracking to maintain continuity across requests
+  const lastMenuEntry = MANYCHAT_STATES.lastMenu.get(subscriberId);
+  if (
+    lastMenuEntry &&
+    lastMenuEntry.menu &&
+    user.current_menu !== lastMenuEntry.menu
+  ) {
+    console.log(
+      `🔗 Reconciling user menu from "${user.current_menu}" -> "${lastMenuEntry.menu}" based on ManyChat tracking`
+    );
+    user.current_menu = lastMenuEntry.menu;
+    userStates.set(subscriberId, user);
+  }
+
   // NEW: If we have any image, route to homework handler and pass through
   if (imageInfo) {
     console.log(`🖼️ Image detected, routing to homework handler`);
@@ -126,6 +160,20 @@ async function handleWebhook(req, res, start) {
     return await homeworkHelp(req, res);
   }
 
+  // Conversational fallback: If in homework and user typed a direct question, route straight to homework
+  if (
+    (user.current_menu === "homework_help" ||
+      (lastMenuEntry && lastMenuEntry.menu === "homework_help")) &&
+    typeof message === "string" &&
+    message.trim() &&
+    isLikelyQuestion(message)
+  ) {
+    console.log(
+      "🧭 Direct typed question detected in homework context -> routing to homeworkHelp"
+    );
+    return await homeworkHelp(req, res);
+  }
+
   // Parse the command
   const command = parseGoatCommand(message, user, { imageInfo });
   console.log(`🎯 Command parsed:`, command.type);
@@ -133,7 +181,11 @@ async function handleWebhook(req, res, start) {
   // Route to appropriate handler based on command type
   switch (command.type) {
     case "homework_help":
-    case "homework_upload":
+    case "homework_upload": {
+      // Persist menu state to avoid losing context on next message
+      user.current_menu = "homework_help";
+      userStates.set(subscriberId, user);
+
       // If parser found image, forward it as well
       if (command.hasImage) {
         req.body.has_image = true;
@@ -142,31 +194,53 @@ async function handleWebhook(req, res, start) {
         if (command.imageUrl) req.body.imageUrl = command.imageUrl;
       }
       return await homeworkHelp(req, res);
+    }
 
-    case "exam_prep_conversation":
+    case "exam_prep_conversation": {
+      user.current_menu = "exam_prep_conversation";
+      userStates.set(subscriberId, user);
+      return await examPrep(req, res);
+    }
+
     case "numbered_menu_command":
       return await examPrep(req, res);
 
-    case "memory_hacks":
+    case "memory_hacks": {
+      user.current_menu = "memory_hacks_active";
+      userStates.set(subscriberId, user);
       return await memoryHacks(req, res);
+    }
 
-    case "menu_choice":
+    case "menu_choice": {
       if (command.choice === 1) {
+        user.current_menu = "exam_prep_conversation";
+        userStates.set(subscriberId, user);
         return await examPrep(req, res);
       } else if (command.choice === 2) {
+        user.current_menu = "homework_help";
+        userStates.set(subscriberId, user);
         return await homeworkHelp(req, res);
       } else if (command.choice === 3) {
+        user.current_menu = "memory_hacks_active";
+        userStates.set(subscriberId, user);
         return await memoryHacks(req, res);
       }
-    // Fall through to default for invalid choices
+      // Fall through to default for invalid choices
+      break;
+    }
 
     case "welcome":
-    default:
+    default: {
+      // If ManyChat says the user was in homework, keep them there instead of bouncing to Welcome
+      if (user.current_menu === "homework_help") {
+        return await homeworkHelp(req, res);
+      }
+
       // Show welcome menu
       const welcomeResponse = await showWelcomeMenu(user);
       userStates.set(subscriberId, user);
-
       return res.status(200).json(formatGoatResponse(welcomeResponse));
+    }
   }
 }
 
