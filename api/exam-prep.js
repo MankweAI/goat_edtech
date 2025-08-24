@@ -5,6 +5,10 @@
  * Developer: DithetoMokgabudi
  */
 
+
+const stateModule = require("../lib/core/state");
+const userStates = stateModule.userStates;
+const trackManyState = stateModule.trackManyState;
 const { ManyCompatResponse } = require("../lib/core/responses");
 const {
   startAIIntelligenceGathering,
@@ -12,7 +16,6 @@ const {
 const {
   generateExamQuestions,
 } = require("../lib/features/exam-prep/questions");
-const { userStates, trackManyState } = require("../lib/core/state"); // FIX: import trackManyState
 const {
   formatResponseWithEnhancedSeparation,
 } = require("../lib/utils/formatting");
