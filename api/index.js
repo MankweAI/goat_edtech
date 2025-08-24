@@ -55,18 +55,16 @@ module.exports = async (req, res) => {
 
     // Last-resort error handling
     if (!res.headersSent) {
-      return res
-        .status(500)
-        .json(
-          formatGoatResponse(
-            "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
-            {
-              status: "error",
-              error: error.message,
-              elapsed_ms: Date.now() - start,
-            }
-          )
-        );
+      return res.status(500).json(
+        formatGoatResponse(
+          "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
+          {
+            status: "error",
+            error: error.message,
+            elapsed_ms: Date.now() - start,
+          }
+        )
+      );
     }
   }
 };
@@ -110,6 +108,19 @@ async function handleWebhook(req, res, start) {
     },
     last_active: new Date().toISOString(),
   };
+
+  // If we have an image and user was previously in homework mode, route directly to homework
+  if (
+    imageInfo &&
+    (user.current_menu === "homework_help" ||
+      MANYCHAT_STATES.lastMenu.get(subscriberId)?.menu === "homework_help")
+  ) {
+    console.log(
+      `🖼️ Image detected for user in homework mode, routing to homework handler`
+    );
+    user.current_menu = "homework_help"; // Ensure current_menu is set correctly
+    return await homeworkHelp(req, res);
+  }
 
   // Parse the command
   const command = parseGoatCommand(message, user, { imageInfo });
