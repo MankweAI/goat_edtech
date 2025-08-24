@@ -12,6 +12,7 @@ const trackManyState = stateModule.trackManyState;
 const { ManyCompatResponse } = require("../lib/core/responses");
 const {
   startAIIntelligenceGathering,
+  processUserResponse,
 } = require("../lib/features/exam-prep/intelligence");
 const {
   generateExamQuestions,
