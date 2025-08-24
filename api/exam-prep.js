@@ -19,18 +19,14 @@ const {
 
 module.exports = async (req, res) => {
   try {
-    // Create interceptor for ManyChat compatibility
     const manyCompatRes = new ManyCompatResponse(res);
-
-    // Extract user ID
     const subscriberId =
       req.body.psid || req.body.subscriber_id || "default_user";
     const message = req.body.message || req.body.user_input || "";
 
-    // Get or create user state
     let user = userStates.get(subscriberId) || {
       id: subscriberId,
-      current_menu: "exam_prep",
+      current_menu: "exam_prep_conversation",
       context: {},
       painpoint_profile: {},
       conversation_history: [],
@@ -38,31 +34,35 @@ module.exports = async (req, res) => {
       last_active: new Date().toISOString(),
     };
 
-    // Special case for mock exam endpoint
+    // Track menu position on entry
+    trackManyState(subscriberId, {
+      type: "exam_prep_conversation",
+      current_menu: "exam_prep_conversation",
+    }); // NEW
+
     if (req.query.endpoint === "mock-exam") {
       return await handleMockExamGeneration(req, manyCompatRes);
     }
 
-    // Check if user wants to generate a question directly (after painpoint confirmation)
     if (
       user.context?.painpoint_confirmed &&
       (message.toLowerCase().includes("question") ||
         message.toLowerCase().includes("test"))
     ) {
-      // Generate question using the new module
       const questionResult = await generateTargetedQuestion(user);
       userStates.set(subscriberId, user);
-      return manyCompatRes.json({
-        message: questionResult,
-        status: "success",
-      });
+      return manyCompatRes.json({ message: questionResult, status: "success" });
     }
 
-    // Default: start exam prep
     const response = await startAIIntelligenceGathering(user);
 
-    // Update user state
+    // Ensure menu stays in exam prep
+    user.current_menu = "exam_prep_conversation";
     userStates.set(subscriberId, user);
+    trackManyState(subscriberId, {
+      type: "exam_prep_conversation",
+      current_menu: "exam_prep_conversation",
+    });
 
     return manyCompatRes.json({
       message: response,
@@ -70,7 +70,6 @@ module.exports = async (req, res) => {
     });
   } catch (error) {
     console.error("Exam prep error:", error);
-
     return res.json({
       message:
         "Sorry, I encountered an error with exam prep. Please try again.",
