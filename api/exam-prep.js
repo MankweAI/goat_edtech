@@ -1,7 +1,7 @@
 /**
  * Exam Preparation API Endpoint
  * GOAT Bot 2.0
- * Updated: 2025-08-23 16:04:32 UTC
+ * Updated: 2025-08-24 14:36:00 UTC
  * Developer: DithetoMokgabudi
  */
 
@@ -12,7 +12,7 @@ const {
 const {
   generateExamQuestions,
 } = require("../lib/features/exam-prep/questions");
-const { userStates } = require("../lib/core/state");
+const { userStates, trackManyState } = require("../lib/core/state"); // FIX: import trackManyState
 const {
   formatResponseWithEnhancedSeparation,
 } = require("../lib/utils/formatting");
@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
     trackManyState(subscriberId, {
       type: "exam_prep_conversation",
       current_menu: "exam_prep_conversation",
-    }); // NEW
+    });
 
     if (req.query.endpoint === "mock-exam") {
       return await handleMockExamGeneration(req, manyCompatRes);
