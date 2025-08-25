@@ -77,12 +77,10 @@ async function handleWebhook(req, res, start) {
   }
 
   if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({
-        error: "Only POST requests supported",
-        echo: "Only POST requests supported",
-      });
+    return res.status(405).json({
+      error: "Only POST requests supported",
+      echo: "Only POST requests supported",
+    });
   }
 
   const subscriberId =
@@ -134,9 +132,9 @@ async function handleWebhook(req, res, start) {
     return await homeworkHelp(req, res);
   }
 
-  // NEW: Global numeric main-menu routing (preempts incorrect homework routing)
+  // FIX: Scope global numeric routing to the welcome menu only
   const trimmed = (message || "").trim();
-  if (/^[123]$/.test(trimmed)) {
+  if (/^[123]$/.test(trimmed) && user.current_menu === "welcome") {
     if (trimmed === "1") {
       user.current_menu = "exam_prep_conversation";
       userStates.set(subscriberId, user);

@@ -1,9 +1,9 @@
 /**
  * Exam Preparation API Endpoint
  * GOAT Bot 2.0
- * Updated: 2025-08-25 19:12:30 UTC
+ * Updated: 2025-08-25 21:40:00 UTC
  * Developer: DithetoMokgabudi
- * Changes: Added state persistence and fallback question generation
+ * Changes: Move IMMEDIATE_FALLBACK handling after FSM; fix response scoping; ensure instant question delivery after confirmation
  */
 
 const stateModule = require("../lib/core/state");
@@ -122,25 +122,39 @@ module.exports = async (req, res) => {
       }
     }
 
-    const text = message || "";
-    if (
-      user.context?.ai_intel_state === AI_INTEL_STATES.IMMEDIATE_FALLBACK &&
-      text !== "1" &&
-      text !== "2" &&
-      text !== "3" &&
-      text !== "4"
-    ) {
-      // Generate fallback question immediately
-      const fallbackQuestion = generateFallbackQuestion(
-        user.context.failureType,
-        user.context.subjectArea
-      );
+    // Handle user response based on current state
+    let response;
+    if (user.context?.ai_intel_state) {
+      // Run FSM first
+      response = await processUserResponse(user, message);
 
-      user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
-      user.context.current_question = fallbackQuestion;
+      // POST-FSM: Generate an immediate fallback question in the SAME request if we're in IMMEDIATE_FALLBACK
+      const txt = (message || "").trim().toLowerCase();
+      const isMenuCommand =
+        txt === "1" ||
+        txt === "2" ||
+        txt === "3" ||
+        txt === "4" ||
+        txt === "solution" ||
+        txt === "next" ||
+        txt === "switch" ||
+        txt === "menu";
 
-      // Replace response with the actual question
-      response = `**Practice Question for ${user.context.painpoint_profile.topic_struggles}**
+      if (
+        user.context?.ai_intel_state === AI_INTEL_STATES.IMMEDIATE_FALLBACK &&
+        !isMenuCommand
+      ) {
+        // Generate fallback question immediately
+        const fallbackQuestion = generateFallbackQuestion(
+          user.context.failureType,
+          user.context.subjectArea
+        );
+
+        user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
+        user.context.current_question = fallbackQuestion;
+
+        // Replace response with the actual question
+        response = `**Practice Question for ${user.context.painpoint_profile.topic_struggles}**
 📊 **Targeted to your specific challenge**
 
 ${fallbackQuestion.questionText}
@@ -151,11 +165,7 @@ ${fallbackQuestion.questionText}
 2️⃣ ➡️ Try Another Question  
 3️⃣ 🔄 Switch Topics
 4️⃣ 🏠 Main Menu`;
-    }
-    // Handle user response based on current state
-    let response;
-    if (user.context?.ai_intel_state) {
-      response = await processUserResponse(user, message);
+      }
 
       // Track question generation if reached that state
       if (user.context.ai_intel_state === "ai_question_generation") {
@@ -183,7 +193,7 @@ ${fallbackQuestion.questionText}
       }
 
       // Track solution viewing
-      if (message === "1" || message.toLowerCase() === "solution") {
+      if (txt === "1" || txt === "solution") {
         analyticsModule
           .trackEvent(subscriberId, "solution_viewed", {
             subject: user.context.painpoint_profile?.subject,
@@ -220,11 +230,11 @@ ${fallbackQuestion.questionText}
       console.error(`❌ State persistence error for ${subscriberId}:`, err);
     });
 
-    // NEW: Add feedback collection option occasionally
-if (user.context?.current_question && Math.random() < 0.2) {
-  // 20% chance
-  response += "\n\n**Was this question helpful for your exam prep? Rate 1-5**";
-}
+    // Only ask for rating when there's an actual question shown
+    if (user.context?.current_question && Math.random() < 0.2) {
+      response +=
+        "\n\n**Was this question helpful for your exam prep? Rate 1-5**";
+    }
 
     // NEW: Track API response time
     analyticsModule
