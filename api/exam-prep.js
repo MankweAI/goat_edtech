@@ -122,6 +122,39 @@ module.exports = async (req, res) => {
       }
     }
 
+    if (
+      user.context?.ai_intel_state === AI_INTEL_STATES.IMMEDIATE_FALLBACK &&
+      text !== "1" &&
+      text !== "2" &&
+      text !== "3" &&
+      text !== "4"
+    ) {
+      // User has waited for question and sent any text - generate fallback immediately
+      const fallbackQuestion = generateFallbackQuestion(
+        user.context.failureType,
+        user.context.subjectArea
+      );
+
+      user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
+      user.context.current_question = fallbackQuestion;
+
+      // Send fallback question
+      return manyCompatRes.json({
+        message: `**Practice Question for ${user.context.painpoint_profile.topic_struggles}**
+📊 **Targeted to your specific challenge**
+
+${fallbackQuestion.questionText}
+
+─────────────────────────────────
+
+1️⃣ 📚 View Solution
+2️⃣ ➡️ Try Another Question  
+3️⃣ 🔄 Switch Topics
+4️⃣ 🏠 Main Menu`,
+        status: "success",
+      });
+    }
+
     // Handle user response based on current state
     let response;
     if (user.context?.ai_intel_state) {
@@ -230,7 +263,44 @@ module.exports = async (req, res) => {
 };
 
 
+async function handleQuestionGeneration(user, userResponse) {
+  // Update personalization preferences based on user interactions
+  user.preferences.personalization = user.preferences.personalization || {
+    difficulty: "adaptive",
+    explanations: "detailed",
+    examples: true,
+    visualStyle: "clear",
+  };
 
+  // Add message about personalization
+  const personalizationMsg = user.preferences.painpoint_history
+    ? `\n\n📊 **Personalized for you** based on your learning patterns`
+    : `\n\n📊 **Customized for your needs**`;
+
+  // First send loading message
+  const loadingMessage = `🎯 **Perfect! Generating your targeted question...**
+
+I'm creating a practice question specifically for:
+"${user.context.painpoint_profile.specific_failure}"
+${personalizationMsg}
+
+⏳ One moment please...
+
+─────────────────────────────────
+
+1️⃣ ➡️ Continue
+2️⃣ 📝 Skip to Next Question
+3️⃣ 🔄 Switch Topics  
+4️⃣ 🏠 Main Menu`;
+
+  // CRITICAL FIX: Set state to ensure immediate fallback if user requests again
+  user.context.ai_intel_state = AI_INTEL_STATES.IMMEDIATE_FALLBACK;
+  user.context.generation_started = Date.now();
+  user.context.failureType = user.context.painpoint_profile.specific_failure;
+  user.context.subjectArea = user.context.painpoint_profile.subject;
+
+  return loadingMessage;
+}
 
 // Handle mock exam generation endpoint
 async function handleMockExamGeneration(req, res) {
