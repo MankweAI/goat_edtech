@@ -1,10 +1,9 @@
 /**
  * Exam Preparation API Endpoint
  * GOAT Bot 2.0
- * Updated: 2025-08-24 14:36:00 UTC
+ * Updated: 2025-08-25 09:48:44 UTC
  * Developer: DithetoMokgabudi
  */
-
 
 const stateModule = require("../lib/core/state");
 const userStates = stateModule.userStates;
@@ -12,7 +11,7 @@ const trackManyState = stateModule.trackManyState;
 const { ManyCompatResponse } = require("../lib/core/responses");
 const {
   startAIIntelligenceGathering,
-  processUserResponse,
+  processUserResponse, // Added this import to fix ReferenceError
 } = require("../lib/features/exam-prep/intelligence");
 const {
   generateExamQuestions,
@@ -25,7 +24,8 @@ const {
 module.exports = async (req, res) => {
   try {
     const manyCompatRes = new ManyCompatResponse(res);
-    const subscriberId = req.body.psid || req.body.subscriber_id || "default_user";
+    const subscriberId =
+      req.body.psid || req.body.subscriber_id || "default_user";
     const message = req.body.message || req.body.user_input || "";
 
     let user = userStates.get(subscriberId) || {
@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
     const response = await startAIIntelligenceGathering(user);
     user.current_menu = "exam_prep_conversation";
     userStates.set(subscriberId, user);
-    
+
     return manyCompatRes.json({
       message: response,
       status: "success",
@@ -67,7 +67,8 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error("Exam prep error:", error);
     return res.json({
-      message: "Sorry, I encountered an error with exam prep. Please try again.",
+      message:
+        "Sorry, I encountered an error with exam prep. Please try again.",
       status: "error",
       echo: "Sorry, I encountered an error with exam prep. Please try again.",
       error: error.message,
