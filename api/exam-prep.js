@@ -47,6 +47,22 @@ module.exports = async (req, res) => {
     const userAgent = req.headers["user-agent"] || "";
     const sessionId = req.body.session_id || `sess_${Date.now()}`;
 
+    // DEBUG: Log the incoming message and existing state
+    console.log(
+      `🔍 DEBUG - Exam-prep request from ${subscriberId}: "${message}"`
+    );
+    const existingState = userStates.get(subscriberId);
+    console.log(
+      `🔍 DEBUG - Existing state menu: ${existingState?.current_menu || "none"}`
+    );
+    console.log(
+      `🔍 DEBUG - Existing AI state: ${
+        existingState?.context?.ai_intel_state || "none"
+      }`
+    );
+    console.log(`🔍 DEBUG - Updated state menu: ${user.current_menu}`);
+    console.log(`🔍 DEBUG - Updated AI state: ${user.context?.ai_intel_state}`);
+
     const entryTimestamp = Date.now();
     console.log(
       `📝 Exam prep request from ${subscriberId}: "${message?.substring(
@@ -191,7 +207,14 @@ module.exports = async (req, res) => {
       })
       .catch((err) => console.error("Analytics error:", err));
 
-    return manyCompatRes.json({ message: response, status: "success" });
+    return manyCompatRes.json({
+      message: response,
+      status: "success",
+      debug_state: {
+        menu: user.current_menu,
+        ai_state: user.context?.ai_intel_state,
+      },
+    });
   } catch (error) {
     console.error("Exam prep error:", error);
     return res.json({
@@ -204,103 +227,6 @@ module.exports = async (req, res) => {
   }
 };
 
-
-
-// Add this function to api/exam-prep.js
-async function generateTargetedQuestion(user) {
-  const profile = user.context.painpoint_profile;
-
-  try {
-    // NEW: Pass user ID for personalization
-    const question = await generateExamQuestions(profile, 1, user.id);
-
-    if (question.questions && question.questions.length > 0) {
-      // Store the current question in user context
-      user.context.current_question = question.questions[0];
-
-      // NEW: Add personalized feedback
-      const feedback = generatePersonalizedFeedback(
-        question.questions[0],
-        user
-      );
-
-      const content = `🎯 **TARGETED PRACTICE QUESTION**
-
-**Designed for your confirmed challenge:** *${profile.specific_failure}*
-
-${feedback}
-
-📝 **Question:**
-${question.questions[0].questionText}
-
-**This question addresses exactly what you confirmed as your challenge.**`;
-
-      const menu = `1️⃣ 📚 Solution
-2️⃣ ➡️ Next Question  
-3️⃣ 🔄 Switch Topics
-4️⃣ 🏠 Main Menu`;
-
-      // Check for LaTeX images and handle as before...
-
-      return formatResponseWithEnhancedSeparation(
-        content,
-        menu,
-        user.preferences.device_type
-      );
-    }
-
-    throw new Error("Question generation returned no questions");
-  } catch (error) {
-    console.error("Question generation error:", error);
-
-    // Fallback message
-    return "Sorry, I encountered an error generating your question. Please try again.";
-  }
-}
-
-async function handleContentRating(req, res) {
-  try {
-    const { user_id, content_id, rating, feedback_text = "" } = req.body;
-
-    if (!user_id || !content_id || !rating) {
-      return res.status(400).json({
-        error: "Missing required parameters",
-        status: "error",
-      });
-    }
-
-    // Record rating
-    const success = await analyticsModule.recordContentQuality(
-      content_id,
-      parseInt(rating),
-      {
-        feedback_text,
-        timestamp: new Date().toISOString(),
-      }
-    );
-
-    // Track rating event
-    analyticsModule
-      .trackEvent(user_id, "content_rated", {
-        content_id,
-        rating: parseInt(rating),
-        has_feedback: Boolean(feedback_text),
-      })
-      .catch((err) => console.error("Analytics error:", err));
-
-    return res.json({
-      status: success ? "success" : "partial_success",
-      message: "Thank you for your feedback!",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Content rating error:", error);
-    return res.status(500).json({
-      status: "error",
-      error: error.message,
-    });
-  }
-}
 
 
 
