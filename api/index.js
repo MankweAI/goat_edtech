@@ -14,12 +14,19 @@ const {
 const { extractImageData, parseGoatCommand } = require("../lib/core/commands");
 const { formatGoatResponse } = require("../lib/core/responses");
 const { detectDeviceType } = require("../lib/utils/device-detection");
-
+const networkResilience = require("../lib/utils/network-resilience");
+const analyticsModule = require("../lib/utils/analytics");
+const stateModule = require("../lib/core/state");
 const homeworkHelp = require("./homework.js");
 const examPrep = require("./exam-prep.js");
 const memoryHacks = require("./memory-hacks.js");
 
 setupStateCleanup();
+
+networkResilience.startRetryScheduler({
+  analyticsModule,
+  stateModule,
+});
 
 module.exports = async (req, res) => {
   const start = Date.now();
