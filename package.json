@@ -1,35 +1,40 @@
 {
-  "name": "goat-edtech",
-  "version": "1.0.0",
-  "description": "GOAT Bot 2.0 - SA Student Companion",
+  "name": "goat_edtech",
+  "version": "2.0.0",
+  "description": "GOAT Bot 2.0 - South African Student Companion",
   "main": "api/index.js",
   "scripts": {
-    "dev": "vercel dev",
-    "deploy": "vercel --prod",
-    "test": "jest --detectOpenHandles",
-    "test:unit": "jest tests/unit --detectOpenHandles",
-    "test:e2e": "jest tests/e2e --detectOpenHandles",
-    "test:integration": "jest tests/integration --detectOpenHandles",
-    "coverage": "jest --coverage --detectOpenHandles"
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
+    "test": "jest"
   },
   "dependencies": {
-    "@google-cloud/vision": "^3.1.4",
-    "@supabase/supabase-js": "^2.55.0",
+    "@google-cloud/vision": "^3.1.0",
+    "@supabase/supabase-js": "^2.21.0",
     "axios": "^1.4.0",
-    "canvas": "^2.11.0",
-    "crypto": "^1.0.1",
-    "express": "^4.18.2",
-    "multer": "^1.4.5-lts.1",
     "form-data": "^4.0.0",
     "mathjax-node": "^2.1.1",
     "openai": "^4.2.0",
     "sharp": "^0.32.6"
   },
+  "optionalDependencies": {
+    "canvas": "^2.11.0"
+  },
   "devDependencies": {
-    "jest": "^29.7.0"
+    "jest": "^29.5.0",
+    "nodemon": "^2.0.22"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "^18.0.0"
   },
-  "author": "sophoniagoat"
+  "keywords": [
+    "education",
+    "south africa",
+    "ai tutor",
+    "whatsapp",
+    "manychat"
+  ],
+  "author": "DithetoMokgabudi",
+  "license": "UNLICENSED",
+  "private": true
 }
