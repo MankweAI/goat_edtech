@@ -122,7 +122,6 @@ module.exports = async (req, res) => {
       }
     }
 
-    // CRITICAL FIX: Check for immediate fallback condition
     const text = message || "";
     if (
       user.context?.ai_intel_state === AI_INTEL_STATES.IMMEDIATE_FALLBACK &&
@@ -131,7 +130,7 @@ module.exports = async (req, res) => {
       text !== "3" &&
       text !== "4"
     ) {
-      // User has waited for question and sent any text - generate fallback immediately
+      // Generate fallback question immediately
       const fallbackQuestion = generateFallbackQuestion(
         user.context.failureType,
         user.context.subjectArea
@@ -140,9 +139,8 @@ module.exports = async (req, res) => {
       user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
       user.context.current_question = fallbackQuestion;
 
-      // Send fallback question
-      return manyCompatRes.json({
-        message: `**Practice Question for ${user.context.painpoint_profile.topic_struggles}**
+      // Replace response with the actual question
+      response = `**Practice Question for ${user.context.painpoint_profile.topic_struggles}**
 📊 **Targeted to your specific challenge**
 
 ${fallbackQuestion.questionText}
@@ -152,11 +150,8 @@ ${fallbackQuestion.questionText}
 1️⃣ 📚 View Solution
 2️⃣ ➡️ Try Another Question  
 3️⃣ 🔄 Switch Topics
-4️⃣ 🏠 Main Menu`,
-        status: "success",
-      });
+4️⃣ 🏠 Main Menu`;
     }
-
     // Handle user response based on current state
     let response;
     if (user.context?.ai_intel_state) {
@@ -226,14 +221,10 @@ ${fallbackQuestion.questionText}
     });
 
     // NEW: Add feedback collection option occasionally
-    if (
-      user.context?.ai_intel_state === "ai_question_generation" &&
-      Math.random() < 0.2
-    ) {
-      // 20% chance
-      response +=
-        "\n\n**Was this question helpful for your exam prep? Rate 1-5**";
-    }
+if (user.context?.current_question && Math.random() < 0.2) {
+  // 20% chance
+  response += "\n\n**Was this question helpful for your exam prep? Rate 1-5**";
+}
 
     // NEW: Track API response time
     analyticsModule
