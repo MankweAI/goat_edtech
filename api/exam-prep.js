@@ -60,8 +60,6 @@ module.exports = async (req, res) => {
         existingState?.context?.ai_intel_state || "none"
       }`
     );
-    console.log(`🔍 DEBUG - Updated state menu: ${user.current_menu}`);
-    console.log(`🔍 DEBUG - Updated AI state: ${user.context?.ai_intel_state}`);
 
     const entryTimestamp = Date.now();
     console.log(
@@ -73,6 +71,10 @@ module.exports = async (req, res) => {
 
     // Retrieve user state with persistence
     let user = await getOrCreateUserState(subscriberId);
+
+    // NOW that user is initialized, we can log the updated state
+    console.log(`🔍 DEBUG - Updated state menu: ${user.current_menu}`);
+    console.log(`🔍 DEBUG - Updated AI state: ${user.context?.ai_intel_state}`);
 
     // Update device detection if not already set
     if (!user.preferences.device_type) {
