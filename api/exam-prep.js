@@ -1,9 +1,9 @@
 /**
  * Exam Preparation API Endpoint
  * GOAT Bot 2.0
- * Updated: 2025-08-25 10:28:56 UTC
+ * Updated: 2025-08-25 19:12:30 UTC
  * Developer: DithetoMokgabudi
- * Changes: Added state persistence
+ * Changes: Added state persistence and fallback question generation
  */
 
 const stateModule = require("../lib/core/state");
@@ -14,6 +14,7 @@ const {
   retrieveUserState,
   getOrCreateUserState,
   trackAnalytics,
+  AI_INTEL_STATES, // CRITICAL FIX: Added missing import
 } = stateModule;
 const { ManyCompatResponse } = require("../lib/core/responses");
 const {
@@ -35,7 +36,6 @@ const analyticsModule = require("../lib/utils/analytics");
 const {
   generatePersonalizedFeedback,
 } = require("../lib/features/exam-prep/personalization");
-
 
 // Update the main module.exports function
 module.exports = async (req, res) => {
@@ -122,6 +122,8 @@ module.exports = async (req, res) => {
       }
     }
 
+    // CRITICAL FIX: Check for immediate fallback condition
+    const text = message || "";
     if (
       user.context?.ai_intel_state === AI_INTEL_STATES.IMMEDIATE_FALLBACK &&
       text !== "1" &&
@@ -262,7 +264,6 @@ ${fallbackQuestion.questionText}
   }
 };
 
-
 async function handleQuestionGeneration(user, userResponse) {
   // Update personalization preferences based on user interactions
   user.preferences.personalization = user.preferences.personalization || {
@@ -300,6 +301,85 @@ ${personalizationMsg}
   user.context.subjectArea = user.context.painpoint_profile.subject;
 
   return loadingMessage;
+}
+
+// Generate fallback question when AI generation fails
+function generateFallbackQuestion(failureType, subjectArea) {
+  // Convert to lowercase for consistent matching
+  const failure = (failureType || "").toLowerCase();
+  const subject = (subjectArea || "Mathematics").toLowerCase();
+
+  // Geometry-specific questions
+  if (subject.includes("geometry")) {
+    if (failure.includes("equation") || failure.includes("balanc")) {
+      return {
+        questionText: `In triangle ABC, angle A = 45° and angle B = 60°. Calculate the measure of angle C.
+
+Remember to use the fact that the sum of all angles in a triangle equals 180°.`,
+        solution: `**Step 1:** Set up the equation using the triangle angle sum property
+A + B + C = 180°
+45° + 60° + C = 180°
+105° + C = 180°
+
+**Step 2:** Solve for angle C
+C = 180° - 105°
+C = 75°
+
+Therefore, angle C = 75°`,
+      };
+    }
+
+    return {
+      questionText: `Two lines intersect, forming angles. If one angle is 35°, find the measure of the adjacent angle.`,
+      solution: `Adjacent angles formed by intersecting lines are supplementary (sum to 180°).
+
+First angle = 35°
+Adjacent angle = 180° - 35° = 145°
+
+Therefore, the adjacent angle measures 145°.`,
+    };
+  }
+
+  // Algebra-specific questions
+  if (
+    subject.includes("algebra") ||
+    failure.includes("equation") ||
+    failure.includes("balanc")
+  ) {
+    return {
+      questionText: `Solve the following equation:
+3x - 7 = 2x + 5
+
+Show all your working steps.`,
+      solution: `**Step 1:** Group like terms
+3x - 2x = 5 + 7
+x = 12
+
+**Step 2:** Check your answer
+3(12) - 7 = 2(12) + 5
+36 - 7 = 24 + 5
+29 = 29 ✓
+
+Therefore, x = 12`,
+    };
+  }
+
+  // Generic fallback for any math topic
+  return {
+    questionText: `If 2x + 3y = 12 and x = 3, find the value of y.
+
+Show your working steps.`,
+    solution: `**Step 1:** Substitute x = 3 into the equation
+2(3) + 3y = 12
+6 + 3y = 12
+
+**Step 2:** Solve for y
+3y = 12 - 6
+3y = 6
+y = 2
+
+Therefore, y = 2`,
+  };
 }
 
 // Handle mock exam generation endpoint
