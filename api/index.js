@@ -1,278 +1,283 @@
-/**
- * GOAT Bot 2.0 - Main Router
- * Updated: 2025-08-24 14:05:00 UTC
- * Developer: DithetoMokgabudi
- * Change: Fix menu option routing; rename to “Exam/Test Help”; add state tracking.
- */
-
-const {
-  userStates,
-  MANYCHAT_STATES,
-  setupStateCleanup,
-  trackManyState,
-} = require("../lib/core/state");
-const { extractImageData, parseGoatCommand } = require("../lib/core/commands");
-const { formatGoatResponse } = require("../lib/core/responses");
-const { detectDeviceType } = require("../lib/utils/device-detection");
-const analyticsModule = require("../lib/utils/analytics");
+// api/exam-prep.js (Major modifications for image handling)
 const stateModule = require("../lib/core/state");
-const homeworkHelp = require("./homework.js");
-const examPrep = require("./exam-prep.js");
-const memoryHacks = require("./memory-hacks.js");
-const networkResilience = require("../lib/utils/network-resilience");
+const userStates = stateModule.userStates;
+const trackManyState = stateModule.trackManyState;
+const {
+  persistUserState,
+  retrieveUserState,
+  getOrCreateUserState,
+  trackAnalytics,
+  AI_INTEL_STATES,
+} = stateModule;
+const { ManyCompatResponse } = require("../lib/core/responses");
+const {
+  startAIIntelligenceGathering,
+  processUserResponse,
+} = require("../lib/features/exam-prep/intelligence");
+const { extractImageData } = require("../lib/core/commands");
+const {
+  ExamPrepImageIntelligence,
+} = require("../lib/features/exam-prep/image-intelligence");
+const {
+  PsychologicalReportGenerator,
+} = require("../lib/features/exam-prep/psychological-report");
+const {
+  FoundationGapDetector,
+} = require("../lib/features/exam-prep/foundation-mapper");
+const analyticsModule = require("../lib/utils/analytics");
 
-setupStateCleanup();
-
-networkResilience.startRetryScheduler({
-  analyticsModule,
-  stateModule,
-});
+// Initialize components
+const imageIntelligence = new ExamPrepImageIntelligence();
+const psychReportGenerator = new PsychologicalReportGenerator();
+const foundationDetector = new FoundationGapDetector();
 
 module.exports = async (req, res) => {
-  const start = Date.now();
-  console.log(
-    `📩 ${req.method} request to ${
-      req.url || "/api/index"
-    } | ${new Date().toISOString()}`
-  );
-
   try {
-    const query = req.query || {};
-    const endpoint = query.endpoint || "webhook";
+    const manyCompatRes = new ManyCompatResponse(res);
+    const subscriberId =
+      req.body.psid || req.body.subscriber_id || "default_user";
+    const message = req.body.message || req.body.user_input || "";
+    const userAgent = req.headers["user-agent"] || "";
+    const sessionId = req.body.session_id || `sess_${Date.now()}`;
 
-    switch (endpoint) {
-      case "webhook":
-        return await handleWebhook(req, res, start);
-      case "mock-exam":
-        return await examPrep(req, res);
-      case "homework-ocr":
-        return await homeworkHelp(req, res);
-      case "memory-hacks":
-        return await memoryHacks(req, res);
-      default:
-        return await handleWebhook(req, res, start);
+    console.log(
+      `🔍 DEBUG - Exam-prep request from ${subscriberId}: "${message}"`
+    );
+
+    const entryTimestamp = Date.now();
+
+    // Retrieve user state with persistence
+    let user = await getOrCreateUserState(subscriberId);
+
+    // Set default menu if not already in exam prep
+    if (!user.current_menu || user.current_menu === "welcome") {
+      user.current_menu = "exam_prep_conversation";
     }
+
+    // Track menu position on entry
+    trackManyState(subscriberId, {
+      type: "exam_prep_conversation",
+      current_menu: "exam_prep_conversation",
+    });
+
+    // NEW: Enhanced image detection and processing
+    const imageInfo = extractImageData(req);
+
+    // PRIORITY: Handle image uploads immediately
+    if (
+      imageInfo &&
+      (imageInfo.type === "direct" || imageInfo.type === "url")
+    ) {
+      console.log(`🖼️ Image detected in exam prep mode`);
+
+      // Store image data in context
+      user.context.hasImage = true;
+      user.context.imageData =
+        imageInfo.type === "direct" ? imageInfo.data : imageInfo.data;
+      user.context.imageType = imageInfo.type;
+
+      // Process through NEW intelligence system
+      const response = await handleImageIntelligence(user, imageInfo);
+
+      // Clean up image data after processing
+      delete user.context.hasImage;
+      delete user.context.imageData;
+      delete user.context.imageType;
+
+      // Store response and persist state
+      user.conversation_history = user.conversation_history || [];
+      user.conversation_history.push({
+        role: "assistant",
+        message: response,
+        timestamp: new Date().toISOString(),
+      });
+
+      userStates.set(subscriberId, user);
+      persistUserState(subscriberId, user).catch(console.error);
+
+      return manyCompatRes.json({
+        message: response,
+        status: "success",
+        debug_state: {
+          menu: user.current_menu,
+          ai_state: user.context?.ai_intel_state,
+          has_intelligence: Boolean(user.context?.intelligence_metadata),
+        },
+      });
+    }
+
+    // Store incoming message in conversation history
+    if (message) {
+      user.conversation_history = user.conversation_history || [];
+      user.conversation_history.push({
+        role: "user",
+        message,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Limit history size
+      if (user.conversation_history.length > 20) {
+        user.conversation_history = user.conversation_history.slice(-20);
+      }
+    }
+
+    // Handle user response based on current state
+    let response;
+    if (user.context?.ai_intel_state) {
+      // Run existing FSM for text responses
+      response = await processUserResponse(user, message);
+    } else {
+      // Initial entry point - start intelligence gathering OR provide upload prompt
+      if (message && !imageInfo) {
+        response = `📸 **Exam/Test Help is now image-only!**
+
+Upload a clear photo of the problem you're struggling with, and I'll:
+✅ Instantly identify what you're working on
+✅ Understand your specific challenge  
+✅ Create targeted practice questions
+✅ Build you up from any foundation gaps
+
+Just upload your image to get started! 📱`;
+      } else {
+        response = await startAIIntelligenceGathering(user);
+      }
+    }
+
+    // Store bot response in conversation history
+    user.conversation_history.push({
+      role: "assistant",
+      message: response,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Update user state in memory
+    userStates.set(subscriberId, user);
+
+    // Persist user state to database (don't await - fire and forget)
+    persistUserState(subscriberId, user).catch((err) => {
+      console.error(`❌ State persistence error for ${subscriberId}:`, err);
+    });
+
+    return manyCompatRes.json({
+      message: response,
+      status: "success",
+      debug_state: {
+        menu: user.current_menu,
+        ai_state: user.context?.ai_intel_state,
+      },
+    });
   } catch (error) {
-    console.error("❌ GOAT Bot fatal error:", error);
-    if (!res.headersSent) {
-      return res.status(500).json(
-        formatGoatResponse(
-          "Sorry, I encountered an error. Please try typing 'menu' to restart! 🔄",
-          {
-            status: "error",
-            error: error.message,
-            elapsed_ms: Date.now() - start,
-          }
-        )
-      );
-    }
+    console.error("Exam prep error:", error);
+    return res.json({
+      message:
+        "Sorry, I encountered an error with exam prep. Please try again.",
+      status: "error",
+      echo: "Sorry, I encountered an error with exam prep. Please try again.",
+      error: error.message,
+    });
   }
 };
 
-async function handleWebhook(req, res, start) {
-  if (req.method === "GET") {
-    return res
-      .status(200)
-      .json(formatGoatResponse("GOAT Bot webhook is operational"));
-  }
+// NEW: Handle image intelligence processing
+async function handleImageIntelligence(user, imageInfo) {
+  try {
+    const imageData = imageInfo.data;
 
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Only POST requests supported",
-      echo: "Only POST requests supported",
-    });
-  }
-
-  const subscriberId =
-    req.body.psid || req.body.subscriber_id || "default_user";
-  const message = req.body.message || req.body.user_input || "";
-  const userAgent = req.headers["user-agent"] || "";
-  console.log(
-    `📥 User ${subscriberId}: "${message}" (${message.length} chars)`
-  );
-
-  const imageInfo = extractImageData(req);
-
-  let user = userStates.get(subscriberId) || {
-    id: subscriberId,
-    current_menu: "welcome",
-    context: {},
-    preferences: { device_type: detectDeviceType(userAgent) },
-    last_active: new Date().toISOString(),
-  };
-
-  // Reconcile with ManyChat lastMenu
-  const lastMenuEntry = MANYCHAT_STATES.lastMenu.get(subscriberId);
-  if (
-    lastMenuEntry &&
-    lastMenuEntry.menu &&
-    user.current_menu !== lastMenuEntry.menu
-  ) {
-    console.log(
-      `🔗 Reconciling user menu from "${user.current_menu}" -> "${lastMenuEntry.menu}"`
+    // Extract complete intelligence from image
+    const result = await imageIntelligence.extractIntelligenceFromImage(
+      imageData,
+      user.id
     );
-    user.current_menu = lastMenuEntry.menu;
-    userStates.set(subscriberId, user);
-  }
 
-  // Route images to Homework Help
-  if (imageInfo) {
-    console.log(`🖼️ Image detected, routing to homework handler`);
-    req.body.has_image = true;
-    req.body.imageInfo = imageInfo;
-    if (imageInfo.type === "direct") req.body.imageData = imageInfo.data;
-    else if (imageInfo.type === "url") req.body.imageUrl = imageInfo.data;
-
-    user.current_menu = "homework_help";
-    userStates.set(subscriberId, user);
-    trackManyState(subscriberId, {
-      type: "homework_help",
-      current_menu: "homework_help",
-    }); // NEW
-    return await homeworkHelp(req, res);
-  }
-
-  // FIX: Scope global numeric routing to the welcome menu only
-  const trimmed = (message || "").trim();
-  if (/^[123]$/.test(trimmed) && user.current_menu === "welcome") {
-    if (trimmed === "1") {
-      user.current_menu = "exam_prep_conversation";
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "exam_prep_conversation",
-        current_menu: "exam_prep_conversation",
-      });
-      return await examPrep(req, res);
-    }
-    if (trimmed === "2") {
-      user.current_menu = "homework_help";
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "homework_help",
-        current_menu: "homework_help",
-      });
-      return await homeworkHelp(req, res);
-    }
-    if (trimmed === "3") {
-      user.current_menu = "memory_hacks_active";
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "memory_hacks_active",
-        current_menu: "memory_hacks_active",
-      });
-      return await memoryHacks(req, res);
-    }
-  }
-
-  // Fall back to command parser
-  const command = parseGoatCommand(message, user, { imageInfo });
-  console.log(`🎯 Command parsed:`, command.type);
-
-  switch (command.type) {
-    case "homework_help":
-    case "homework_upload": {
-      user.current_menu = "homework_help";
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "homework_help",
-        current_menu: "homework_help",
-      });
-
-      if (command.hasImage) {
-        req.body.has_image = true;
-        if (command.imageInfo) req.body.imageInfo = command.imageInfo;
-        if (command.imageData) req.body.imageData = command.imageData;
-        if (command.imageUrl) req.body.imageUrl = command.imageUrl;
-      }
-      return await homeworkHelp(req, res);
+    if (!result.success) {
+      return generateImageProcessingError(result.error);
     }
 
-    case "exam_prep_conversation": {
-      user.current_menu = "exam_prep_conversation";
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "exam_prep_conversation",
-        current_menu: "exam_prep_conversation",
-      });
-      return await examPrep(req, res);
-    }
+    const intelligence = result.intelligence;
 
-    case "numbered_menu_command":
-      return await examPrep(req, res);
+    // Build complete profile immediately
+    user.context.painpoint_profile = {
+      assessment_type: "test", // Default assumption
+      grade: intelligence.grade,
+      subject: intelligence.subject,
+      topic_struggles: intelligence.topic,
+      specific_failure: intelligence.struggle,
+    };
 
-    case "memory_hacks": {
-      user.current_menu = "memory_hacks_active";
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "memory_hacks_active",
-        current_menu: "memory_hacks_active",
-      });
-      return await memoryHacks(req, res);
-    }
+    // Store intelligence metadata
+    user.context.intelligence_metadata = {
+      confidence: {
+        grade: intelligence.gradeConfidence,
+        subject: intelligence.subjectConfidence,
+        topic: intelligence.topicConfidence,
+        struggle: intelligence.struggleConfidence,
+        overall: intelligence.overallConfidence,
+      },
+      foundationGaps: intelligence.foundationGaps,
+      relatedStruggles: intelligence.relatedStruggles,
+      userConfidence: intelligence.confidenceLevel,
+      extractedText: result.extractedText,
+      imageHash: result.imageHash,
+    };
 
-    case "menu_choice": {
-      if (command.choice === 1) {
-        user.current_menu = "exam_prep_conversation";
-        userStates.set(subscriberId, user);
-        trackManyState(subscriberId, {
-          type: "exam_prep_conversation",
-          current_menu: "exam_prep_conversation",
-        });
-        return await examPrep(req, res);
-      } else if (command.choice === 2) {
-        user.current_menu = "homework_help";
-        userStates.set(subscriberId, user);
-        trackManyState(subscriberId, {
-          type: "homework_help",
-          current_menu: "homework_help",
-        });
-        return await homeworkHelp(req, res);
-      } else if (command.choice === 3) {
-        user.current_menu = "memory_hacks_active";
-        userStates.set(subscriberId, user);
-        trackManyState(subscriberId, {
-          type: "memory_hacks_active",
-          current_menu: "memory_hacks_active",
-        });
-        return await memoryHacks(req, res);
-      }
-      break;
-    }
+    // Generate psychological report with intelligence analysis
+    const psychReport = psychReportGenerator.generateReport(intelligence, {
+      extractedText: result.extractedText,
+      confidence: result.confidence,
+    });
 
-    case "welcome":
-    default: {
-      if (user.current_menu === "homework_help") {
-        return await homeworkHelp(req, res);
-      }
+    // Detect foundation gaps
+    const foundationGaps = foundationDetector.detectFoundationGaps(
+      intelligence.topic,
+      intelligence.grade,
+      intelligence.struggle
+    );
 
-      const welcomeResponse = await showWelcomeMenu(user, subscriberId);
-      userStates.set(subscriberId, user);
-      trackManyState(subscriberId, {
-        type: "welcome",
-        current_menu: "welcome",
-      }); // NEW
-      return res.status(200).json(formatGoatResponse(welcomeResponse));
-    }
+    // Store foundation gaps for later use
+    user.context.foundationGaps = foundationGaps;
+
+    // Set state for interactive solution mode
+    user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION;
+    user.context.painpoint_confirmed = false;
+
+    // Track analytics
+    analyticsModule
+      .trackEvent(user.id, "image_intelligence_extracted", {
+        subject: intelligence.subject,
+        grade: intelligence.grade,
+        topic: intelligence.topic,
+        confidence: intelligence.overallConfidence,
+        foundationGapsDetected: foundationGaps.length,
+      })
+      .catch(console.error);
+
+    return psychReport;
+  } catch (error) {
+    console.error("Image intelligence processing failed:", error);
+    return generateFallbackImageResponse();
   }
 }
 
-async function showWelcomeMenu(user, subscriberId) {
-  console.log(`🏠 Welcome menu for user ${user.id}`);
-  user.current_menu = "welcome";
-  user.context = {};
+function generateImageProcessingError(error) {
+  return `📸 **Image processing challenge**
 
-  const welcomeBack = user.preferences.last_subject
-    ? `\n\n👋 **Welcome back!** Ready to continue with *${user.preferences.last_subject}*?`
-    : "";
+I couldn't clearly read your problem. Please try:
+• Better lighting
+• Hold camera steady  
+• Fill the frame with the problem
+• Use clear, dark writing
 
-  // Renamed menu item to “Exam/Test Help”
-  return `**Welcome to The GOAT.** I'm here help you study with calm and clarity.${welcomeBack}
+📱 Upload a clearer image to continue.`;
+}
 
-**What do you need right now?**
+function generateFallbackImageResponse() {
+  return `📸 **Let's try again**
 
-1️⃣ 📅 Exam/Test Help
-2️⃣ 📚 Homework Help 🫶 ⚡  
-3️⃣ 🧮 Tips & Hacks
+I can see you uploaded an image but couldn't extract the problem details.
 
-Just pick a number! ✨`;
+Please upload a clear photo of a specific problem you're struggling with, and I'll:
+✅ Identify the grade level and topic
+✅ Find your specific challenge
+✅ Create targeted practice questions  
+✅ Build up from foundations if needed`;
 }

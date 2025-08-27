@@ -1,9 +1,10 @@
+// api/exam-prep.js (COMPLETE REPLACEMENT)
 /**
- * Exam Preparation API Endpoint
+ * Exam Preparation API Endpoint - Image Intelligence Mode
  * GOAT Bot 2.0
- * Updated: 2025-08-25 21:40:00 UTC
+ * Updated: 2025-08-27 09:33:36 UTC
  * Developer: DithetoMokgabudi
- * Changes: Move IMMEDIATE_FALLBACK handling after FSM; fix response scoping; ensure instant question delivery after confirmation
+ * Changes: Complete transformation to image-first intelligence system
  */
 
 const stateModule = require("../lib/core/state");
@@ -14,30 +15,34 @@ const {
   retrieveUserState,
   getOrCreateUserState,
   trackAnalytics,
-  AI_INTEL_STATES, // CRITICAL FIX: Added missing import
 } = stateModule;
 const { ManyCompatResponse } = require("../lib/core/responses");
+const { extractImageData } = require("../lib/core/commands");
 const {
-  startAIIntelligenceGathering,
-  processUserResponse,
-} = require("../lib/features/exam-prep/intelligence");
+  ExamPrepImageIntelligence,
+} = require("../lib/features/exam-prep/image-intelligence");
 const {
-  generateExamQuestions,
-} = require("../lib/features/exam-prep/questions");
+  PsychologicalReportGenerator,
+} = require("../lib/features/exam-prep/psychological-report");
 const {
-  formatResponseWithEnhancedSeparation,
-} = require("../lib/utils/formatting");
-const { detectDeviceType } = require("../lib/utils/device-detection");
+  FoundationGapDetector,
+} = require("../lib/features/exam-prep/foundation-mapper");
 const {
-  sendImageViaManyChat,
-  formatWithLatexImage,
-} = require("../lib/utils/whatsapp-image");
+  SolutionAnalyzer,
+} = require("../lib/features/exam-prep/solution-analyzer");
+const {
+  AdaptiveDifficulty,
+} = require("../lib/features/exam-prep/adaptive-progression");
 const analyticsModule = require("../lib/utils/analytics");
-const {
-  generatePersonalizedFeedback,
-} = require("../lib/features/exam-prep/personalization");
+const { detectDeviceType } = require("../lib/utils/device-detection");
 
-// Update the main module.exports function
+// Initialize components
+const imageIntelligence = new ExamPrepImageIntelligence();
+const psychReportGenerator = new PsychologicalReportGenerator();
+const foundationDetector = new FoundationGapDetector();
+const solutionAnalyzer = new SolutionAnalyzer();
+const adaptiveDifficulty = new AdaptiveDifficulty();
+
 module.exports = async (req, res) => {
   try {
     const manyCompatRes = new ManyCompatResponse(res);
@@ -47,34 +52,14 @@ module.exports = async (req, res) => {
     const userAgent = req.headers["user-agent"] || "";
     const sessionId = req.body.session_id || `sess_${Date.now()}`;
 
-    // DEBUG: Log the incoming message and existing state
     console.log(
-      `🔍 DEBUG - Exam-prep request from ${subscriberId}: "${message}"`
-    );
-    const existingState = userStates.get(subscriberId);
-    console.log(
-      `🔍 DEBUG - Existing state menu: ${existingState?.current_menu || "none"}`
-    );
-    console.log(
-      `🔍 DEBUG - Existing AI state: ${
-        existingState?.context?.ai_intel_state || "none"
-      }`
+      `🖼️ Image-first exam prep request from ${subscriberId}: "${message}"`
     );
 
     const entryTimestamp = Date.now();
-    console.log(
-      `📝 Exam prep request from ${subscriberId}: "${message?.substring(
-        0,
-        50
-      )}${message?.length > 50 ? "..." : ""}"`
-    );
 
     // Retrieve user state with persistence
     let user = await getOrCreateUserState(subscriberId);
-
-    // NOW that user is initialized, we can log the updated state
-    console.log(`🔍 DEBUG - Updated state menu: ${user.current_menu}`);
-    console.log(`🔍 DEBUG - Updated AI state: ${user.context?.ai_intel_state}`);
 
     // Update device detection if not already set
     if (!user.preferences.device_type) {
@@ -92,22 +77,61 @@ module.exports = async (req, res) => {
       current_menu: "exam_prep_conversation",
     });
 
-    // NEW: More comprehensive analytics tracking
-    analyticsModule
-      .trackEvent(subscriberId, "exam_prep_interaction", {
-        message_length: message?.length || 0,
-        session_id: sessionId,
-        device_type: user.preferences.device_type,
-        entry_state: user.context?.ai_intel_state || "initial",
-        had_context: Boolean(user.context?.painpoint_profile),
-      })
-      .catch((err) => console.error("Analytics error:", err));
+    // Enhanced image detection and processing
+    const imageInfo = extractImageData(req);
 
-    if (req.query.endpoint === "mock-exam") {
-      return await handleMockExamGeneration(req, manyCompatRes);
+    // PRIORITY: Handle image uploads immediately
+    if (
+      imageInfo &&
+      (imageInfo.type === "direct" || imageInfo.type === "url")
+    ) {
+      console.log(`🖼️ Image detected in exam prep mode`);
+
+      // Process through image intelligence system
+      const response = await handleImageIntelligence(user, imageInfo);
+
+      // Store response and persist state
+      user.conversation_history = user.conversation_history || [];
+      user.conversation_history.push({
+        role: "assistant",
+        message: response,
+        timestamp: new Date().toISOString(),
+      });
+
+      userStates.set(subscriberId, user);
+      persistUserState(subscriberId, user).catch(console.error);
+
+      return manyCompatRes.json({
+        message: response,
+        status: "success",
+        debug_state: {
+          menu: user.current_menu,
+          mode: "image_intelligence",
+          has_intelligence: Boolean(user.context?.intelligence_metadata),
+        },
+      });
     }
 
-    // Store incoming message in conversation history
+    // Handle solution uploads (when user uploads their work)
+    if (user.context?.interactiveMode && user.context?.currentQuestion) {
+      const response = await handleSolutionUpload(user, imageInfo);
+
+      user.conversation_history.push({
+        role: "assistant",
+        message: response,
+        timestamp: new Date().toISOString(),
+      });
+
+      userStates.set(subscriberId, user);
+      persistUserState(subscriberId, user).catch(console.error);
+
+      return manyCompatRes.json({
+        message: response,
+        status: "success",
+      });
+    }
+
+    // Handle text responses (confirmations, menu choices, etc.)
     if (message) {
       user.conversation_history = user.conversation_history || [];
       user.conversation_history.push({
@@ -122,126 +146,30 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Handle user response based on current state
+    // Process text-based interactions
     let response;
-    if (user.context?.ai_intel_state) {
-      // Run FSM first
-      response = await processUserResponse(user, message);
-
-      // POST-FSM: Generate an immediate fallback question in the SAME request if we're in IMMEDIATE_FALLBACK
-      const txt = (message || "").trim().toLowerCase();
-      const isMenuCommand =
-        txt === "1" ||
-        txt === "2" ||
-        txt === "3" ||
-        txt === "4" ||
-        txt === "solution" ||
-        txt === "next" ||
-        txt === "switch" ||
-        txt === "menu";
-
-      if (
-        user.context?.ai_intel_state === AI_INTEL_STATES.IMMEDIATE_FALLBACK &&
-        !isMenuCommand
-      ) {
-        // Generate fallback question immediately
-        const fallbackQuestion = generateFallbackQuestion(
-          user.context.failureType,
-          user.context.subjectArea
-        );
-
-        user.context.ai_intel_state = AI_INTEL_STATES.GUIDED_DISCOVERY;
-        user.context.current_question = fallbackQuestion;
-
-        // Replace response with the actual question
-        response = `**Practice Question for ${user.context.painpoint_profile.topic_struggles}**
-📊 **Targeted to your specific challenge**
-
-${fallbackQuestion.questionText}
-
-─────────────────────────────────
-
-1️⃣ 📚 View Solution
-2️⃣ ➡️ Try Another Question  
-3️⃣ 🔄 Switch Topics
-4️⃣ 🏠 Main Menu`;
-      }
-
-      // Track question generation if reached that state
-      if (user.context.ai_intel_state === "ai_question_generation") {
-        analyticsModule
-          .trackEvent(subscriberId, "exam_question_generated", {
-            subject: user.context.painpoint_profile?.subject,
-            grade: user.context.painpoint_profile?.grade,
-            topic: user.context.painpoint_profile?.topic_struggles,
-            painpoint: user.context.painpoint_profile?.specific_failure,
-            elapsed_ms: Date.now() - entryTimestamp,
-          })
-          .catch((err) => console.error("Analytics error:", err));
-
-        // NEW: Track the specific question content
-        if (user.context.current_question?.contentId) {
-          analyticsModule
-            .trackEvent(subscriberId, "content_shown", {
-              content_id: user.context.current_question.contentId,
-              subject: user.context.painpoint_profile?.subject,
-              content_type: "exam_question",
-              has_latex: Boolean(user.context.current_question.hasLatex),
-            })
-            .catch((err) => console.error("Analytics error:", err));
-        }
-      }
-
-      // Track solution viewing
-      if (txt === "1" || txt === "solution") {
-        analyticsModule
-          .trackEvent(subscriberId, "solution_viewed", {
-            subject: user.context.painpoint_profile?.subject,
-            topic: user.context.painpoint_profile?.topic_struggles,
-            content_id: user.context.current_question?.contentId,
-          })
-          .catch((err) => console.error("Analytics error:", err));
-      }
+    if (user.context?.interactiveMode) {
+      response = await handleInteractiveMode(user, message);
     } else {
-      // Initial entry point - start intelligence gathering
-      response = await startAIIntelligenceGathering(user);
-
-      // Track conversation start
-      analyticsModule
-        .trackEvent(subscriberId, "exam_prep_started", {
-          session_id: sessionId,
-          entry_type: "new_session",
-        })
-        .catch((err) => console.error("Analytics error:", err));
+      response = generateImageUploadPrompt(user);
     }
 
-    // Store bot response in conversation history
+    // Store and return response
     user.conversation_history.push({
       role: "assistant",
       message: response,
       timestamp: new Date().toISOString(),
     });
 
-    // Update user state in memory
     userStates.set(subscriberId, user);
+    persistUserState(subscriberId, user).catch(console.error);
 
-    // Persist user state to database (don't await - fire and forget)
-    persistUserState(subscriberId, user).catch((err) => {
-      console.error(`❌ State persistence error for ${subscriberId}:`, err);
-    });
-
-    // Only ask for rating when there's an actual question shown
-    if (user.context?.current_question && Math.random() < 0.2) {
-      response +=
-        "\n\n**Was this question helpful for your exam prep? Rate 1-5**";
-    }
-
-    // NEW: Track API response time
+    // Track analytics
     analyticsModule
-      .trackEvent(subscriberId, "api_performance", {
-        endpoint: "exam_prep",
-        response_time_ms: Date.now() - entryTimestamp,
-        message_length: response?.length || 0,
+      .trackEvent(subscriberId, "exam_prep_interaction", {
+        mode: "image_first",
+        has_intelligence: Boolean(user.context?.intelligence_metadata),
+        device_type: user.preferences.device_type,
       })
       .catch((err) => console.error("Analytics error:", err));
 
@@ -250,7 +178,7 @@ ${fallbackQuestion.questionText}
       status: "success",
       debug_state: {
         menu: user.current_menu,
-        ai_state: user.context?.ai_intel_state,
+        mode: user.context?.interactiveMode ? "interactive" : "awaiting_image",
       },
     });
   } catch (error) {
@@ -265,178 +193,317 @@ ${fallbackQuestion.questionText}
   }
 };
 
-async function handleQuestionGeneration(user, userResponse) {
-  // Update personalization preferences based on user interactions
-  user.preferences.personalization = user.preferences.personalization || {
-    difficulty: "adaptive",
-    explanations: "detailed",
-    examples: true,
-    visualStyle: "clear",
-  };
-
-  // Add message about personalization
-  const personalizationMsg = user.preferences.painpoint_history
-    ? `\n\n📊 **Personalized for you** based on your learning patterns`
-    : `\n\n📊 **Customized for your needs**`;
-
-  // First send loading message
-  const loadingMessage = `🎯 **Perfect! Generating your targeted question...**
-
-I'm creating a practice question specifically for:
-"${user.context.painpoint_profile.specific_failure}"
-${personalizationMsg}
-
-⏳ One moment please...
-
-─────────────────────────────────
-
-1️⃣ ➡️ Continue
-2️⃣ 📝 Skip to Next Question
-3️⃣ 🔄 Switch Topics  
-4️⃣ 🏠 Main Menu`;
-
-  // CRITICAL FIX: Set state to ensure immediate fallback if user requests again
-  user.context.ai_intel_state = AI_INTEL_STATES.IMMEDIATE_FALLBACK;
-  user.context.generation_started = Date.now();
-  user.context.failureType = user.context.painpoint_profile.specific_failure;
-  user.context.subjectArea = user.context.painpoint_profile.subject;
-
-  return loadingMessage;
-}
-
-// Generate fallback question when AI generation fails
-function generateFallbackQuestion(failureType, subjectArea) {
-  // Convert to lowercase for consistent matching
-  const failure = (failureType || "").toLowerCase();
-  const subject = (subjectArea || "Mathematics").toLowerCase();
-
-  // Geometry-specific questions
-  if (subject.includes("geometry")) {
-    if (failure.includes("equation") || failure.includes("balanc")) {
-      return {
-        questionText: `In triangle ABC, angle A = 45° and angle B = 60°. Calculate the measure of angle C.
-
-Remember to use the fact that the sum of all angles in a triangle equals 180°.`,
-        solution: `**Step 1:** Set up the equation using the triangle angle sum property
-A + B + C = 180°
-45° + 60° + C = 180°
-105° + C = 180°
-
-**Step 2:** Solve for angle C
-C = 180° - 105°
-C = 75°
-
-Therefore, angle C = 75°`,
-      };
-    }
-
-    return {
-      questionText: `Two lines intersect, forming angles. If one angle is 35°, find the measure of the adjacent angle.`,
-      solution: `Adjacent angles formed by intersecting lines are supplementary (sum to 180°).
-
-First angle = 35°
-Adjacent angle = 180° - 35° = 145°
-
-Therefore, the adjacent angle measures 145°.`,
-    };
-  }
-
-  // Algebra-specific questions
-  if (
-    subject.includes("algebra") ||
-    failure.includes("equation") ||
-    failure.includes("balanc")
-  ) {
-    return {
-      questionText: `Solve the following equation:
-3x - 7 = 2x + 5
-
-Show all your working steps.`,
-      solution: `**Step 1:** Group like terms
-3x - 2x = 5 + 7
-x = 12
-
-**Step 2:** Check your answer
-3(12) - 7 = 2(12) + 5
-36 - 7 = 24 + 5
-29 = 29 ✓
-
-Therefore, x = 12`,
-    };
-  }
-
-  // Generic fallback for any math topic
-  return {
-    questionText: `If 2x + 3y = 12 and x = 3, find the value of y.
-
-Show your working steps.`,
-    solution: `**Step 1:** Substitute x = 3 into the equation
-2(3) + 3y = 12
-6 + 3y = 12
-
-**Step 2:** Solve for y
-3y = 12 - 6
-3y = 6
-y = 2
-
-Therefore, y = 2`,
-  };
-}
-
-// Handle mock exam generation endpoint
-async function handleMockExamGeneration(req, res) {
-  const {
-    grade = 10,
-    subject = "Mathematics",
-    questionCount = 1,
-    topics = "algebra",
-    painpoint = "solving equations",
-    confidence = "medium",
-  } = req.query;
-
+// NEW: Handle image intelligence processing
+async function handleImageIntelligence(user, imageInfo) {
   try {
-    // Create a mock profile for API testing
-    const mockProfile = {
-      grade: grade,
-      subject: subject,
-      topic_struggles: topics,
-      specific_failure: painpoint,
-      assessment_type: "test",
-    };
+    const imageData = imageInfo.data;
 
-    // Use our new questions module
-    const examQuestions = await generateExamQuestions(
-      mockProfile,
-      parseInt(questionCount) || 1
+    // Extract complete intelligence from image
+    const result = await imageIntelligence.extractIntelligenceFromImage(
+      imageData,
+      user.id
     );
 
-    // Format for API response
-    const formattedQuestions = examQuestions.questions.map((q, index) => ({
-      questionNumber: index + 1,
-      questionText: q.questionText,
-      solution: q.solution,
-      marksAllocated: 5,
-      targeted: true,
-      painpoint: painpoint,
-      source: q.source,
-    }));
+    if (!result.success) {
+      return generateImageProcessingError(result.error);
+    }
 
-    return res.status(200).json({
-      timestamp: new Date().toISOString(),
-      user: "sophoniagoat",
-      mockExam: formattedQuestions,
-      metadata: {
-        ...examQuestions.metadata,
-        modularized: true,
+    const intelligence = result.intelligence;
+
+    // Build complete profile immediately (without mentioning grades)
+    user.context.painpoint_profile = {
+      subject: intelligence.subject,
+      topic_struggles: intelligence.topic,
+      specific_failure: intelligence.struggle,
+    };
+
+    // Store intelligence metadata
+    user.context.intelligence_metadata = {
+      confidence: {
+        subject: intelligence.subjectConfidence,
+        topic: intelligence.topicConfidence,
+        struggle: intelligence.struggleConfidence,
+        overall: intelligence.overallConfidence,
       },
+      foundationGaps: intelligence.foundationGaps,
+      relatedStruggles: intelligence.relatedStruggles,
+      userConfidence: intelligence.confidenceLevel,
+      extractedText: result.extractedText,
+      imageHash: result.imageHash,
+    };
+
+    // Generate psychological report (no grade mentions)
+    const psychReport = psychReportGenerator.generateReport(intelligence, {
+      extractedText: result.extractedText,
+      confidence: result.confidence,
     });
+
+    // Detect foundation gaps
+    const foundationGaps = foundationDetector.detectFoundationGaps(
+      intelligence.topic,
+      intelligence.grade,
+      intelligence.struggle
+    );
+
+    // Store foundation gaps for later use
+    user.context.foundationGaps = foundationGaps;
+
+    // Set interactive mode with first practice question
+    user.context.interactiveMode = true;
+    user.context.currentQuestion = await generateFirstPracticeQuestion(
+      intelligence,
+      foundationGaps
+    );
+
+    // Track analytics
+    analyticsModule
+      .trackEvent(user.id, "image_intelligence_extracted", {
+        subject: intelligence.subject,
+        topic: intelligence.topic,
+        confidence: intelligence.overallConfidence,
+        foundationGapsDetected: foundationGaps.length,
+      })
+      .catch(console.error);
+
+    // Combine psychological report with first practice question
+    const fullResponse = `${psychReport}
+
+**Let's start with a practice question:**
+
+${user.context.currentQuestion.questionText}
+
+**📝 Solve this and upload a photo of your work, or reply:**
+1️⃣ 💡 I need a hint
+2️⃣ 📸 Upload different problem
+3️⃣ 🏠 Main Menu`;
+
+    return fullResponse;
   } catch (error) {
-    console.error("Mock exam generation error:", error);
-    return res.status(500).json({
-      timestamp: new Date().toISOString(),
-      user: "sophoniagoat",
-      error: "Failed to generate mock exam",
-      message: error.message,
-    });
+    console.error("Image intelligence processing failed:", error);
+    return generateFallbackImageResponse();
   }
+}
+
+// Handle solution uploads from users
+async function handleSolutionUpload(user, imageInfo) {
+  if (!imageInfo || !user.context?.currentQuestion) {
+    return "Please upload a photo of your solution attempt.";
+  }
+
+  try {
+    const analysis = await solutionAnalyzer.analyzeSolution(
+      imageInfo.data,
+      user.context.currentQuestion,
+      user.context
+    );
+
+    // Store solution attempt
+    user.context.solutionHistory = user.context.solutionHistory || [];
+    user.context.solutionHistory.push({
+      questionId: user.context.currentQuestion.contentId,
+      analysis: analysis,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Generate next question based on performance
+    const nextQuestion = await generateAdaptiveQuestion(analysis, user.context);
+    user.context.currentQuestion = nextQuestion;
+
+    return (
+      generateSolutionFeedback(analysis) +
+      `
+
+**Next practice question:**
+
+${nextQuestion.questionText}
+
+**📝 Solve this and upload your work, or reply:**
+1️⃣ 💡 I need a hint
+2️⃣ 📸 Upload different problem
+3️⃣ 🏠 Main Menu`
+    );
+  } catch (error) {
+    console.error("Solution analysis failed:", error);
+    return "I couldn't analyze your solution. Please try uploading a clearer photo of your work.";
+  }
+}
+
+// Handle interactive mode text responses
+async function handleInteractiveMode(user, message) {
+  const text = message.toLowerCase().trim();
+
+  if (text === "1" || text.includes("hint")) {
+    // Provide hint for current question
+    const hint = await generateContextualHint(
+      user.context.currentQuestion,
+      user.context
+    );
+    return `💡 **Hint:** ${hint}
+
+Now try solving it and upload your work!`;
+  }
+
+  if (text === "2" || text.includes("different")) {
+    // Reset to allow new image upload
+    user.context.interactiveMode = false;
+    user.context.currentQuestion = null;
+    return generateImageUploadPrompt(user);
+  }
+
+  if (text === "3" || text.includes("menu")) {
+    // Return to main menu
+    user.current_menu = "welcome";
+    user.context = {};
+    return `**Welcome to The GOAT.** I'm here help you study with calm and clarity.
+
+**What do you need right now?**
+
+1️⃣ 📅 Exam/Test Help
+2️⃣ 📚 Homework Help 🫶 ⚡  
+3️⃣ 🧮 Tips & Hacks
+
+Just pick a number! ✨`;
+  }
+
+  // Default response in interactive mode
+  return `I'm waiting for you to:
+📝 Upload your solution attempt
+💡 Ask for a hint (reply "1")
+📸 Upload a different problem (reply "2")
+🏠 Go to main menu (reply "3")`;
+}
+
+// Generate the initial upload prompt
+function generateImageUploadPrompt(user) {
+  return `📸 **Exam/Test Help is now image-only!**
+
+Upload a clear photo of the problem you're struggling with, and I'll:
+✅ Instantly understand your specific challenge  
+✅ Detect any foundation gaps
+✅ Create targeted practice questions
+✅ Guide you through solution steps
+
+Just upload your image to get started! 📱`;
+}
+
+// Helper functions for question generation
+async function generateFirstPracticeQuestion(intelligence, foundationGaps) {
+  // Start with foundation if gaps detected
+  if (foundationGaps.length > 0) {
+    return (
+      foundationDetector.getFoundationQuestions(
+        foundationGaps.slice(0, 1)
+      )[0] || {
+        questionText: `Let's practice with ${intelligence.topic}. Try solving a basic problem in this area.`,
+        solution: "Work through this step by step.",
+        contentId: `foundation_${Date.now()}`,
+      }
+    );
+  }
+
+  // Generate practice question at current level
+  return {
+    questionText: `Practice with ${
+      intelligence.topic
+    }: ${generateSimplePracticeQuestion(intelligence)}`,
+    solution: "Step-by-step solution here",
+    contentId: `practice_${Date.now()}`,
+  };
+}
+
+function generateSimplePracticeQuestion(intelligence) {
+  const practiceQuestions = {
+    "solving equations": "Solve: 2x + 5 = 17",
+    "quadratic factoring": "Factor: x² + 5x + 6",
+    trigonometry: "Find sin(30°)",
+    "functions and graphs": "Find the y-intercept of y = 2x + 3",
+    default: "Apply the concept you were working on",
+  };
+
+  return practiceQuestions[intelligence.topic] || practiceQuestions["default"];
+}
+
+async function generateAdaptiveQuestion(analysis, context) {
+  // Use adaptive difficulty system
+  const recommendation = adaptiveDifficulty.determineNextQuestion(
+    analysis,
+    context.solutionHistory,
+    context.currentQuestion
+  );
+
+  // Adjust difficulty based on performance
+  if (analysis.nextAction === "next_level") {
+    return {
+      questionText: "Great work! Try this slightly harder version...",
+      solution: "Solution here",
+      contentId: `adaptive_up_${Date.now()}`,
+    };
+  } else if (analysis.nextAction === "foundation_review") {
+    return {
+      questionText: "Let's strengthen the foundation first...",
+      solution: "Foundation solution here",
+      contentId: `foundation_${Date.now()}`,
+    };
+  }
+
+  // Same level with variation
+  return {
+    questionText: "Try this similar problem...",
+    solution: "Similar solution here",
+    contentId: `same_level_${Date.now()}`,
+  };
+}
+
+function generateSolutionFeedback(analysis) {
+  if (analysis.nextAction === "next_level") {
+    return `🎉 **Excellent work!** 
+
+Your method is correct and your answer is right. You're getting stronger at this!`;
+  }
+
+  if (analysis.nextAction === "method_guidance") {
+    return `🎯 **Good attempt!** I can see you're trying.
+
+The approach needs a small adjustment. Let me show you the key method for this type.`;
+  }
+
+  return `💪 **Keep going!** 
+
+I can see your working. Let me help you improve this step by step.`;
+}
+
+async function generateContextualHint(question, context) {
+  // Generate helpful hints without giving away the answer
+  const hints = [
+    "Start by identifying what you know and what you need to find.",
+    "Look for the pattern or formula that applies to this type of problem.",
+    "Break this down into smaller, manageable steps.",
+    "Remember the foundation concepts that connect to this problem.",
+  ];
+
+  return hints[Math.floor(Math.random() * hints.length)];
+}
+
+function generateImageProcessingError(error) {
+  return `📸 **Image processing challenge**
+
+I couldn't clearly read your problem. Please try:
+• Better lighting
+• Hold camera steady
+• Fill the frame with the problem
+• Use clear, dark writing
+
+📱 Upload a clearer image to continue.`;
+}
+
+function generateFallbackImageResponse() {
+  return `📸 **Let's try again**
+
+I can see you uploaded an image but couldn't extract the problem details.
+
+Please upload a clear photo of a specific problem you're struggling with, and I'll:
+✅ Identify your specific challenge
+✅ Find foundation gaps if needed
+✅ Create targeted practice questions  
+✅ Guide you through solutions`;
 }
