@@ -2,14 +2,15 @@
 /**
  * Exam Preparation API Endpoint - Image Intelligence Mode
  * GOAT Bot 2.0
- * Updated: 2025-08-27 13:10:00 UTC
+ * Updated: 2025-08-27 13:35:00 UTC
  * Developer: DithetoMokgabudi
  *
- * Changes (Painpoint-first, no exam date, no study plans):
- * - Remove exam/test date collection and study-plan generation
- * - Do NOT generate a question until user confirms exact painpoint
- * - Add concise technical+motivational report with co‑struggles confirmation
- * - After confirmation, show a simple execution plan (not a study plan), then 1st diagnostic
+ * Changes (BUGFIX: solution uploads + prompt tightening):
+ * - Prioritize solution analysis when in interactive mode (before image-intelligence)
+ * - In interactive mode, route text commands (1/2/3) to handleInteractiveMode (no "please upload" dead-end)
+ * - Do NOT re-run image intelligence when user uploads solution image during practice
+ * - Remove free-text option from painpoint confirmation prompt
+ * - Enforce confirmation to only "yes" or A/B/C (no implicit free-text confirmation)
  */
 
 const stateModule = require("../lib/core/state");
@@ -67,9 +68,68 @@ module.exports = async (req, res) => {
       current_menu: "exam_prep_conversation",
     });
 
+    // Extract image (once)
     const imageInfo = extractImageData(req);
 
-    // 1) Image-first processing
+    // 1) Interactive mode always takes precedence:
+    //    - If image present → analyze as solution
+    //    - Else if text → handle interactive commands (hint/different/menu)
+    if (user.context?.interactiveMode && user.context?.currentQuestion) {
+      let response;
+      if (
+        imageInfo &&
+        (imageInfo.type === "direct" || imageInfo.type === "url")
+      ) {
+        response = await handleSolutionUpload(user, imageInfo);
+      } else if ((message || "").trim()) {
+        response = await handleInteractiveMode(user, message);
+      } else {
+        response =
+          "I'm ready when you are. Upload your working photo, or reply 1 (Hint), 2 (Different problem), 3 (Main Menu).";
+      }
+
+      user.conversation_history = user.conversation_history || [];
+      user.conversation_history.push({
+        role: "assistant",
+        message: response,
+        timestamp: new Date().toISOString(),
+      });
+      userStates.set(subscriberId, user);
+      persistUserState(subscriberId, user).catch(console.error);
+
+      return manyCompatRes.json({
+        message: response,
+        status: "success",
+        debug_state: { menu: user.current_menu, mode: "interactive" },
+      });
+    }
+
+    // 2) Painpoint confirmation gate (before generating first question)
+    if (user.context?.painpointConfirm?.awaiting) {
+      const response = await handlePainpointConfirmation(user, message);
+
+      user.conversation_history = user.conversation_history || [];
+      user.conversation_history.push({
+        role: "assistant",
+        message: response,
+        timestamp: new Date().toISOString(),
+      });
+      userStates.set(subscriberId, user);
+      persistUserState(subscriberId, user).catch(console.error);
+
+      return manyCompatRes.json({
+        message: response,
+        status: "success",
+        debug_state: {
+          menu: user.current_menu,
+          mode: user.context?.interactiveMode
+            ? "interactive"
+            : "awaiting_painpoint_confirmation",
+        },
+      });
+    }
+
+    // 3) First-time image intelligence
     if (
       imageInfo &&
       (imageInfo.type === "direct" || imageInfo.type === "url")
@@ -96,49 +156,6 @@ module.exports = async (req, res) => {
             : "image_intelligence",
         },
       });
-    }
-
-    // 2) If awaiting painpoint confirmation, handle it before anything else
-    if (user.context?.painpointConfirm?.awaiting) {
-      const response = await handlePainpointConfirmation(user, message);
-
-      user.conversation_history = user.conversation_history || [];
-      user.conversation_history.push({
-        role: "assistant",
-        message: response,
-        timestamp: new Date().toISOString(),
-      });
-
-      userStates.set(subscriberId, user);
-      persistUserState(subscriberId, user).catch(console.error);
-
-      return manyCompatRes.json({
-        message: response,
-        status: "success",
-        debug_state: {
-          menu: user.current_menu,
-          mode: user.context?.interactiveMode
-            ? "interactive"
-            : "awaiting_painpoint_confirmation",
-        },
-      });
-    }
-
-    // 3) If user is in interactive practice mode (after confirmation)
-    if (user.context?.interactiveMode && user.context?.currentQuestion) {
-      const response = await handleSolutionUpload(user, imageInfo);
-
-      user.conversation_history = user.conversation_history || [];
-      user.conversation_history.push({
-        role: "assistant",
-        message: response,
-        timestamp: new Date().toISOString(),
-      });
-
-      userStates.set(subscriberId, user);
-      persistUserState(subscriberId, user).catch(console.error);
-
-      return manyCompatRes.json({ message: response, status: "success" });
     }
 
     // 4) Otherwise, prompt for image
@@ -206,7 +223,7 @@ async function handleImageIntelligence(user, imageInfo) {
       imageHash: result.imageHash,
     };
 
-    // Build concise report (no purpose/end-goal/study plan)
+    // Build concise report (no date/plan)
     const conciseReport = psychReportGenerator.generateConciseReport(
       intelligence,
       {
@@ -247,12 +264,10 @@ function buildPainpointOptions(intelligence, foundationGaps = []) {
     .map((g) => g.description)
     .filter(Boolean);
 
-  // Take up to 3 suggestions mixing related struggles and gap labels
   const suggestions = Array.from(new Set([...related, ...gapLabels]))
     .filter((s) => s && s.toLowerCase() !== primary.toLowerCase())
     .slice(0, 3);
 
-  // Ensure we have at least some defaults
   const fallbackSuggestions = [
     "calculation slips",
     "equation setup",
@@ -276,8 +291,7 @@ C) ${C}
 
 Am I correct?
 - Reply: "yes" to confirm "${options.primary}"
-- Or pick A/B/C
-- Or tell me the exact part (your own words)`;
+- Or pick A/B/C`;
 }
 
 // Handle confirmation replies and then generate plan + first diagnostic
@@ -291,24 +305,23 @@ async function handlePainpointConfirmation(user, message = "") {
   else if (text === "a") confirmed = suggestions[0];
   else if (text === "b") confirmed = suggestions[1];
   else if (text === "c") confirmed = suggestions[2];
-  else if (text && text.length > 1) confirmed = message.trim();
 
   if (!confirmed) {
-    return `No stress — tell me the exact part that’s tripping you up (e.g., “moving terms” or “factoring step”).`;
+    return `Please pick one: reply "yes" to confirm "${primary}" or choose A/B/C.`;
   }
 
   // Store confirmed painpoint
   user.context.confirmed_painpoint = confirmed;
   user.context.painpointConfirm.awaiting = false;
 
-  // “Execution plan” (not study plan)
+  // Execution plan (not study plan)
   const plan = `Ok cool — I have a plan to get you mastering this.
 Total time with me: about 7 hours.
 • Phase 1 (stabilise method): 2.5h
 • Phase 2 (pattern drills): 3.5h
 • Phase 3 (speed + confidence): 1h
 
-Right now, let’s test your "${confirmed}" with a quick diagnostic. Do this on paper and upload your working.`;
+Right now, let's test your "${confirmed}" with a quick diagnostic. Do this on paper and upload your working.`;
 
   // Generate first question targeted to confirmed painpoint
   const intelligence = confirmCtx.intelligence || {};
@@ -318,7 +331,6 @@ Right now, let’s test your "${confirmed}" with a quick diagnostic. Do this on 
   const firstQuestion = await generateFirstPracticeQuestion(
     {
       ...intelligence,
-      // force profile to use confirmed painpoint
       struggle: confirmed,
     },
     foundationGaps,
@@ -341,7 +353,7 @@ ${firstQuestion.questionText}
 // Analyze solution uploads
 async function handleSolutionUpload(user, imageInfo) {
   if (!imageInfo || !user.context?.currentQuestion) {
-    return "Please upload a photo of your solution attempt.";
+    return "Please upload a photo of your solution attempt, or reply 1 (Hint), 2 (Different problem), 3 (Main Menu).";
   }
 
   try {
@@ -380,6 +392,46 @@ ${nextQuestion.questionText}
   }
 }
 
+// Handle interactive mode text responses
+async function handleInteractiveMode(user, message) {
+  const lower = (message || "").toLowerCase().trim();
+
+  if (lower === "1" || lower.includes("hint")) {
+    const hint = await generateContextualHint(
+      user.context.currentQuestion,
+      user.context
+    );
+    return `💡 **Hint:** ${hint}
+
+Now try solving it and upload your work!`;
+  }
+
+  if (lower === "2" || lower.includes("different")) {
+    user.context.interactiveMode = false;
+    user.context.currentQuestion = null;
+    return generateImageUploadPrompt(user);
+  }
+
+  if (lower === "3" || lower.includes("menu")) {
+    user.current_menu = "welcome";
+    user.context = {};
+    return `**Welcome to The GOAT.** I'm here help you study with calm and clarity.
+
+**What do you need right now?**
+
+1️⃣ 📅 Exam/Test Help
+2️⃣ 📚 Homework Help 🫶 ⚡  
+3️⃣ 🧮 Tips & Hacks
+
+Just pick a number! ✨`;
+  }
+
+  return `I'm ready. Upload your working photo, or reply:
+1️⃣ Hint
+2️⃣ Different problem
+3️⃣ Main Menu`;
+}
+
 // Generate the initial upload prompt
 function generateImageUploadPrompt() {
   return `📸 **Exam/Test Help is image-only!**
@@ -392,7 +444,6 @@ async function generateFirstPracticeQuestion(
   foundationGaps,
   userId
 ) {
-  // Try AI first
   try {
     const profile = {
       subject: intelligence.subject || "Mathematics",
@@ -420,7 +471,6 @@ async function generateFirstPracticeQuestion(
     console.error("AI question generation failed:", e.message);
   }
 
-  // If AI fails, use foundation gap question
   if (foundationGaps && foundationGaps.length > 0) {
     const fqs = foundationDetector.getFoundationQuestions(
       foundationGaps.slice(0, 1)
@@ -436,7 +486,6 @@ async function generateFirstPracticeQuestion(
     }
   }
 
-  // Deterministic fallback
   try {
     const fallback = generateFallbackQuestion({
       subject: intelligence.subject || "Mathematics",
@@ -500,6 +549,17 @@ function generateSolutionFeedback(analysis) {
     return `🧮 Almost — method is fine. Small calculation slip to fix.`;
   }
   return `💪 Keep going — we’ll sharpen this step by step.`;
+}
+
+async function generateContextualHint(question, context) {
+  const hints = [
+    "Start by isolating like terms on one side before you divide or factor.",
+    "Name the operation you need, then do it to both sides to keep the 'balance'.",
+    "If you're unsure, plug in a simple number to test whether your step keeps the equation true.",
+    "Underline the target (e.g., x) and plan the inverse operations in reverse order.",
+  ];
+
+  return hints[Math.floor(Math.random() * hints.length)];
 }
 
 function generateImageProcessingError() {
