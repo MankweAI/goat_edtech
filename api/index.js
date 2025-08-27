@@ -31,21 +31,34 @@ const imageIntelligence = new ExamPrepImageIntelligence();
 const psychReportGenerator = new PsychologicalReportGenerator();
 const foundationDetector = new FoundationGapDetector();
 
+// api/index.js (FIXED VERSION)
+/**
+ * Default API Entry Point
+ * GOAT Bot 2.0
+ * Updated: 2025-08-27 12:05:00 UTC
+ * Developer: DithetoMokgabudi
+ * Fix: Added ManyChat-required echo field
+ */
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  res.status(200).json({
+  
+  const response = {
     status: "OK",
     message: "GOAT Bot 2.0 API is running",
+    echo: "GOAT Bot 2.0 API is running", // ManyChat requires this field
     timestamp: new Date().toISOString(),
     endpoints: {
       health: "/api/health",
-      monitor: "/api/monitor",
+      monitor: "/api/monitor", 
       exam_prep: "/api/exam-prep",
       homework: "/api/homework",
-      memory_hacks: "/api/memory-hacks",
+      memory_hacks: "/api/memory-hacks"
     },
-    version: "2.0.0",
-  });
+    version: "2.0.0"
+  };
+
+  res.status(200).json(response);
 };
 // NEW: Handle image intelligence processing
 async function handleImageIntelligence(user, imageInfo) {
