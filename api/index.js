@@ -1,10 +1,10 @@
-// api/index.js (COMPLETE WEBHOOK ROUTER)
+// api/index.js (FIXED ROUTING)
 /**
  * Main Webhook Entry Point - All ManyChat Traffic
  * GOAT Bot 2.0
- * Updated: 2025-08-27 10:30:00 UTC
+ * Updated: 2025-08-27 10:35:00 UTC
  * Developer: DithetoMokgabudi
- * Fix: Single webhook entry point that routes to all features
+ * Fix: Correct response object routing to features
  */
 
 const { ManyCompatResponse } = require("../lib/core/responses");
@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
     // ROUTE BASED ON COMMAND TYPE
     if (command.type === "MENU_CHOICE") {
       // Handle main menu selections: 1=exam, 2=homework, 3=memory
-      return await routeToFeature(command.choice, req, manyCompatRes, user);
+      return await routeToFeature(command.choice, req, res, user);
     }
 
     if (
@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
     ) {
       // Route to exam prep feature
       const examPrepHandler = require("./exam-prep");
-      return await examPrepHandler(req, res._res || res);
+      return await examPrepHandler(req, res);
     }
 
     if (
@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
     ) {
       // Route to memory hacks feature
       const memoryHacksHandler = require("./memory-hacks");
-      return await memoryHacksHandler(req, res._res || res);
+      return await memoryHacksHandler(req, res);
     }
 
     // Default: Show main menu
@@ -108,20 +108,22 @@ async function routeToFeature(choice, req, res, user) {
   if (choice === 1) {
     // Exam/Test Help → Route to exam-prep.js
     const examPrepHandler = require("./exam-prep");
-    return await examPrepHandler(req, res._res || res);
+    return await examPrepHandler(req, res); // FIXED: Use original res object
   } else if (choice === 2) {
     // Homework Help → Route to homework processor
     const {
       ConsolidatedHomeworkHelp,
     } = require("../lib/features/homework/processor");
     const homeworkHelper = new ConsolidatedHomeworkHelp();
-    return await homeworkHelper.processHomeworkRequest(req, res);
+    const manyCompatRes = new ManyCompatResponse(res);
+    return await homeworkHelper.processHomeworkRequest(req, manyCompatRes);
   } else if (choice === 3) {
     // Memory Hacks → Route to memory-hacks.js
     const memoryHacksHandler = require("./memory-hacks");
-    return await memoryHacksHandler(req, res._res || res);
+    return await memoryHacksHandler(req, res); // FIXED: Use original res object
   } else {
-    return await showMainMenu(user, res);
+    const manyCompatRes = new ManyCompatResponse(res);
+    return await showMainMenu(user, manyCompatRes);
   }
 }
 
@@ -145,4 +147,3 @@ Just pick a number! ✨`;
     echo: message,
   });
 }
-
