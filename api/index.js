@@ -1,10 +1,10 @@
-// api/index.js (FIXED ROUTING)
+// api/index.js (ROUTING FIXES)
 /**
  * Main Webhook Entry Point - All ManyChat Traffic
  * GOAT Bot 2.0
- * Updated: 2025-08-27 10:35:00 UTC
+ * Updated: 2025-08-27 10:50:00 UTC
  * Developer: DithetoMokgabudi
- * Fix: Correct response object routing to features
+ * Fix: Correct response object routing and return handling
  */
 
 const { ManyCompatResponse } = require("../lib/core/responses");
@@ -39,7 +39,14 @@ module.exports = async (req, res) => {
     // ROUTE BASED ON COMMAND TYPE
     if (command.type === "MENU_CHOICE") {
       // Handle main menu selections: 1=exam, 2=homework, 3=memory
-      return await routeToFeature(command.choice, req, res, user);
+      console.log(`🎯 Menu choice detected: ${command.choice}`);
+      return await routeToFeature(
+        command.choice,
+        req,
+        res,
+        user,
+        manyCompatRes
+      );
     }
 
     if (
@@ -86,8 +93,8 @@ module.exports = async (req, res) => {
   }
 };
 
-// Route to specific feature based on menu choice
-async function routeToFeature(choice, req, res, user) {
+// FIXED: Route to specific feature based on menu choice
+async function routeToFeature(choice, req, res, user, manyCompatRes) {
   console.log(`🎯 Routing to feature: ${choice}`);
 
   // Update user's current menu
@@ -107,28 +114,31 @@ async function routeToFeature(choice, req, res, user) {
 
   if (choice === 1) {
     // Exam/Test Help → Route to exam-prep.js
+    console.log(`📅 Routing to exam-prep.js`);
     const examPrepHandler = require("./exam-prep");
-    return await examPrepHandler(req, res); // FIXED: Use original res object
+    return await examPrepHandler(req, res); // FIXED: Proper return
   } else if (choice === 2) {
     // Homework Help → Route to homework processor
+    console.log(`📚 Routing to homework processor`);
     const {
       ConsolidatedHomeworkHelp,
     } = require("../lib/features/homework/processor");
     const homeworkHelper = new ConsolidatedHomeworkHelp();
-    const manyCompatRes = new ManyCompatResponse(res);
-    return await homeworkHelper.processHomeworkRequest(req, manyCompatRes);
+    return await homeworkHelper.processHomeworkRequest(req, manyCompatRes); // FIXED: Proper return
   } else if (choice === 3) {
     // Memory Hacks → Route to memory-hacks.js
+    console.log(`🧮 Routing to memory-hacks.js`);
     const memoryHacksHandler = require("./memory-hacks");
-    return await memoryHacksHandler(req, res); // FIXED: Use original res object
+    return await memoryHacksHandler(req, res); // FIXED: Proper return
   } else {
-    const manyCompatRes = new ManyCompatResponse(res);
+    // Invalid choice, show main menu
+    console.log(`❌ Invalid choice: ${choice}, showing main menu`);
     return await showMainMenu(user, manyCompatRes);
   }
 }
 
-// Show main menu
-async function showMainMenu(user, res) {
+// FIXED: Show main menu
+async function showMainMenu(user, manyCompatRes) {
   user.current_menu = "welcome";
 
   const message = `**Welcome to The GOAT.** I'm here help you study with calm and clarity.
@@ -141,7 +151,7 @@ async function showMainMenu(user, res) {
 
 Just pick a number! ✨`;
 
-  return res.json({
+  return manyCompatRes.json({
     message,
     status: "success",
     echo: message,
