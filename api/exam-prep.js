@@ -1,13 +1,13 @@
-// api/exam-prep.js (COMPLETE REPLACEMENT)
+// api/exam-prep.js
 /**
  * Exam Preparation API Endpoint - Image Intelligence Mode
  * GOAT Bot 2.0
- * Updated: 2025-08-27 11:28:00 UTC
+ * Updated: 2025-08-27 11:55:00 UTC
  * Developer: DithetoMokgabudi
- * Changes:
- *  - Image-first intelligence with AI question generation (CAPS-aligned)
- *  - Stronger, more actionable psychological report
- *  - Deterministic practice question generation with robust fallbacks
+ * Changes (report v2):
+ *  - Psychological report now states explicit purpose, end-goal, 2-day mastery plan
+ *  - Technical diagnosis layered with motivation
+ *  - Lists likely related pain-points (co-struggles)
  */
 
 const stateModule = require("../lib/core/state");
@@ -223,6 +223,13 @@ async function handleImageIntelligence(user, imageInfo) {
       specific_failure: intelligence.struggle,
     };
 
+    // Detect foundation gaps (structured)
+    const foundationGaps = foundationDetector.detectFoundationGaps(
+      intelligence.topic,
+      intelligence.grade,
+      intelligence.struggle
+    );
+
     // Store intelligence metadata
     user.context.intelligence_metadata = {
       confidence: {
@@ -231,28 +238,21 @@ async function handleImageIntelligence(user, imageInfo) {
         struggle: intelligence.struggleConfidence,
         overall: intelligence.overallConfidence,
       },
-      foundationGaps: intelligence.foundationGaps,
+      foundationGaps,
       relatedStruggles: intelligence.relatedStruggles,
       userConfidence: intelligence.confidenceLevel,
       extractedText: result.extractedText,
       imageHash: result.imageHash,
     };
 
-    // Generate psychological report (no grade mentions)
+    // Generate psychological report (technical + motivational + end-goal)
     const psychReport = psychReportGenerator.generateReport(intelligence, {
       extractedText: result.extractedText,
       confidence: result.confidence,
+      foundationGaps,
+      timeHorizonDays: 2, // Assume Grade 10 learner with test in 2 days
+      gradeOverride: intelligence.grade || 10,
     });
-
-    // Detect foundation gaps
-    const foundationGaps = foundationDetector.detectFoundationGaps(
-      intelligence.topic,
-      intelligence.grade,
-      intelligence.struggle
-    );
-
-    // Store foundation gaps for later use
-    user.context.foundationGaps = foundationGaps;
 
     // Set interactive mode with first practice question (AI-backed)
     user.context.interactiveMode = true;
@@ -261,6 +261,7 @@ async function handleImageIntelligence(user, imageInfo) {
       foundationGaps,
       user.id
     );
+    user.context.foundationGaps = foundationGaps;
 
     // Track analytics
     analyticsModule
@@ -275,7 +276,7 @@ async function handleImageIntelligence(user, imageInfo) {
     // Combine psychological report with first practice question
     const fullResponse = `${psychReport}
 
-**Let's start with a practice question:**
+**Let's start with a practice question (Step 1 – quick diagnostic):**
 
 ${user.context.currentQuestion.questionText}
 
@@ -320,7 +321,7 @@ async function handleSolutionUpload(user, imageInfo) {
       generateSolutionFeedback(analysis) +
       `
 
-**Next practice question:**
+**Next practice question (Step 2 – adaptive):**
 
 ${nextQuestion.questionText}
 
@@ -518,33 +519,26 @@ function generateSolutionFeedback(analysis) {
   if (analysis.nextAction === "next_level") {
     return `🎉 **Excellent work!** 
 
-Your method is correct and your answer is right. You're getting stronger at this!`;
+Your method is correct and your answer is right. You're building topic mastery.`;
   }
 
   if (analysis.nextAction === "method_guidance") {
-    return `🎯 **Good attempt!** I can see you're trying.
-
-The approach needs a small adjustment. Let me show you the key method for this type.`;
+    return `🎯 **Good attempt.** The method needs a small adjustment — let's tune the technique so the whole topic clicks.`;
   }
 
   if (analysis.nextAction === "calculation_help") {
-    return `🧮 **Almost there!** 
-
-Your method is right. There’s a small calculation slip — let’s tidy that up and you’ll nail it.`;
+    return `🧮 **Almost there.** Method is solid — a small calculation slip. Fixing these builds test‑day confidence.`;
   }
 
-  return `💪 **Keep going!** 
-
-I can see your working. Let me help you improve this step by step.`;
+  return `💪 **Keep going.** You're doing the right work. I'll guide you step by step toward topic mastery.`;
 }
 
 async function generateContextualHint(question, context) {
-  // Generate helpful hints without giving away the answer
   const hints = [
-    "Start by identifying what you know and what you need to find.",
-    "Look for the pattern or formula that applies to this type of problem.",
-    "Break this down into smaller, manageable steps.",
-    "Remember the foundation concepts that connect to this problem.",
+    "Start by isolating like terms on one side before you divide or factor.",
+    "Name the operation you need, then do it to both sides to keep the 'balance'.",
+    "If you're unsure, plug in a simple number to test whether your step keeps the equation true.",
+    "Underline the target (e.g., x) and plan the inverse operations in reverse order.",
   ];
 
   return hints[Math.floor(Math.random() * hints.length)];
