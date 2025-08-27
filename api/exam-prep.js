@@ -2,9 +2,12 @@
 /**
  * Exam Preparation API Endpoint - Image Intelligence Mode
  * GOAT Bot 2.0
- * Updated: 2025-08-27 09:33:36 UTC
+ * Updated: 2025-08-27 11:28:00 UTC
  * Developer: DithetoMokgabudi
- * Changes: Complete transformation to image-first intelligence system
+ * Changes:
+ *  - Image-first intelligence with AI question generation (CAPS-aligned)
+ *  - Stronger, more actionable psychological report
+ *  - Deterministic practice question generation with robust fallbacks
  */
 
 const stateModule = require("../lib/core/state");
@@ -33,6 +36,10 @@ const {
 const {
   AdaptiveDifficulty,
 } = require("../lib/features/exam-prep/adaptive-progression");
+const {
+  generateExamQuestions,
+  generateFallbackQuestion,
+} = require("../lib/features/exam-prep/questions");
 const analyticsModule = require("../lib/utils/analytics");
 const { detectDeviceType } = require("../lib/utils/device-detection");
 
@@ -56,8 +63,6 @@ module.exports = async (req, res) => {
       `🖼️ Image-first exam prep request from ${subscriberId}: "${message}"`
     );
 
-    const entryTimestamp = Date.now();
-
     // Retrieve user state with persistence
     let user = await getOrCreateUserState(subscriberId);
 
@@ -66,10 +71,11 @@ module.exports = async (req, res) => {
       user.preferences.device_type = detectDeviceType(userAgent);
     }
 
-    // Set default menu if not already in exam prep
+    // Ensure exam context
     if (!user.current_menu || user.current_menu === "welcome") {
       user.current_menu = "exam_prep_conversation";
     }
+    user.context = user.context || {};
 
     // Track menu position on entry
     trackManyState(subscriberId, {
@@ -248,11 +254,12 @@ async function handleImageIntelligence(user, imageInfo) {
     // Store foundation gaps for later use
     user.context.foundationGaps = foundationGaps;
 
-    // Set interactive mode with first practice question
+    // Set interactive mode with first practice question (AI-backed)
     user.context.interactiveMode = true;
     user.context.currentQuestion = await generateFirstPracticeQuestion(
       intelligence,
-      foundationGaps
+      foundationGaps,
+      user.id
     );
 
     // Track analytics
@@ -330,7 +337,7 @@ ${nextQuestion.questionText}
 
 // Handle interactive mode text responses
 async function handleInteractiveMode(user, message) {
-  const text = message.toLowerCase().trim();
+  const text = (message || "").toLowerCase().trim();
 
   if (text === "1" || text.includes("hint")) {
     // Provide hint for current question
@@ -387,40 +394,88 @@ Just upload your image to get started! 📱`;
 }
 
 // Helper functions for question generation
-async function generateFirstPracticeQuestion(intelligence, foundationGaps) {
-  // Start with foundation if gaps detected
-  if (foundationGaps.length > 0) {
-    return (
-      foundationDetector.getFoundationQuestions(
-        foundationGaps.slice(0, 1)
-      )[0] || {
-        questionText: `Let's practice with ${intelligence.topic}. Try solving a basic problem in this area.`,
-        solution: "Work through this step by step.",
-        contentId: `foundation_${Date.now()}`,
-      }
+async function generateFirstPracticeQuestion(
+  intelligence,
+  foundationGaps,
+  userId
+) {
+  // Attempt AI-generated, CAPS-aligned question first
+  try {
+    const profile = {
+      subject: intelligence.subject || "Mathematics",
+      grade: intelligence.grade || 10,
+      topic_struggles: intelligence.topic || "algebra",
+      specific_failure: intelligence.struggle || "solving equations",
+      assessment_type: "exam practice",
+    };
+
+    const { questions } = await generateExamQuestions(profile, 1, userId);
+    const q = questions && questions[0];
+
+    if (q && q.questionText) {
+      return {
+        questionText: q.questionText,
+        solution: q.solution || "Solution available after your attempt.",
+        contentId:
+          q.contentId ||
+          `ai_${Date.now().toString(36)}_${Math.random()
+            .toString(36)
+            .slice(2, 6)}`,
+        type: "ai_generated",
+      };
+    }
+  } catch (e) {
+    console.error(
+      "AI question generation failed in first question:",
+      e.message
     );
   }
 
-  // Generate practice question at current level
+  // If AI fails and there are foundation gaps, use foundation question
+  if (foundationGaps && foundationGaps.length > 0) {
+    const fqs = foundationDetector.getFoundationQuestions(
+      foundationGaps.slice(0, 1)
+    );
+    if (fqs && fqs[0]) {
+      const fq = fqs[0];
+      return {
+        questionText: fq.questionText,
+        solution: fq.solution || "Solution available after your attempt.",
+        contentId: `foundation_${Date.now()}`,
+        type: "foundation",
+      };
+    }
+  }
+
+  // Final fallback: deterministic subject/topic-based question
+  try {
+    const fallback = generateFallbackQuestion({
+      subject: intelligence.subject || "Mathematics",
+      grade: intelligence.grade || 10,
+      topic_struggles: intelligence.topic || "algebra",
+      specific_failure: intelligence.struggle || "solving equations",
+      assessment_type: "exam practice",
+    });
+
+    if (fallback && fallback.questionText) {
+      return {
+        questionText: fallback.questionText,
+        solution: fallback.solution || "Solution available after your attempt.",
+        contentId: `fb_${Date.now()}`,
+        type: "fallback",
+      };
+    }
+  } catch (e) {
+    console.error("Fallback question generation error:", e.message);
+  }
+
+  // Absolute last resort: simple template
   return {
-    questionText: `Practice with ${
-      intelligence.topic
-    }: ${generateSimplePracticeQuestion(intelligence)}`,
-    solution: "Step-by-step solution here",
-    contentId: `practice_${Date.now()}`,
+    questionText: `Solve: 2x + 5 = 17`,
+    solution: "2x = 12 → x = 6",
+    contentId: `simple_${Date.now()}`,
+    type: "simple",
   };
-}
-
-function generateSimplePracticeQuestion(intelligence) {
-  const practiceQuestions = {
-    "solving equations": "Solve: 2x + 5 = 17",
-    "quadratic factoring": "Factor: x² + 5x + 6",
-    trigonometry: "Find sin(30°)",
-    "functions and graphs": "Find the y-intercept of y = 2x + 3",
-    default: "Apply the concept you were working on",
-  };
-
-  return practiceQuestions[intelligence.topic] || practiceQuestions["default"];
 }
 
 async function generateAdaptiveQuestion(analysis, context) {
@@ -434,23 +489,28 @@ async function generateAdaptiveQuestion(analysis, context) {
   // Adjust difficulty based on performance
   if (analysis.nextAction === "next_level") {
     return {
-      questionText: "Great work! Try this slightly harder version...",
-      solution: "Solution here",
+      questionText:
+        "Great work! Try this slightly harder version...\nSolve: 2(x + 3) = 4x - 6",
+      solution: "2x + 6 = 4x - 6 → 12 = 2x → x = 6",
       contentId: `adaptive_up_${Date.now()}`,
+      type: "adaptive_up",
     };
   } else if (analysis.nextAction === "foundation_review") {
     return {
-      questionText: "Let's strengthen the foundation first...",
-      solution: "Foundation solution here",
+      questionText:
+        "Let's strengthen the foundation first...\nSolve: x + 3 = 7",
+      solution: "x = 4",
       contentId: `foundation_${Date.now()}`,
+      type: "foundation_review",
     };
   }
 
   // Same level with variation
   return {
-    questionText: "Try this similar problem...",
-    solution: "Similar solution here",
+    questionText: "Try this similar problem...\nSolve: 3x − 7 = 2x + 5",
+    solution: "x = 12",
     contentId: `same_level_${Date.now()}`,
+    type: "same_level",
   };
 }
 
@@ -465,6 +525,12 @@ Your method is correct and your answer is right. You're getting stronger at this
     return `🎯 **Good attempt!** I can see you're trying.
 
 The approach needs a small adjustment. Let me show you the key method for this type.`;
+  }
+
+  if (analysis.nextAction === "calculation_help") {
+    return `🧮 **Almost there!** 
+
+Your method is right. There’s a small calculation slip — let’s tidy that up and you’ll nail it.`;
   }
 
   return `💪 **Keep going!** 
