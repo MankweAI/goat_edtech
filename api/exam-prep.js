@@ -40,6 +40,7 @@ const {
 } = require("../lib/features/exam-prep/questions");
 const analyticsModule = require("../lib/utils/analytics");
 const { detectDeviceType } = require("../lib/utils/device-detection");
+const { downloadImageAsBase64 } = require("../lib/utils/fetch-image");
 
 const imageIntelligence = new ExamPrepImageIntelligence();
 const psychReportGenerator = new PsychologicalReportGenerator();
@@ -68,12 +69,9 @@ module.exports = async (req, res) => {
       current_menu: "exam_prep_conversation",
     });
 
-    // Extract image (once)
     const imageInfo = extractImageData(req);
 
-    // 1) Interactive mode always takes precedence:
-    //    - If image present → analyze as solution
-    //    - Else if text → handle interactive commands (hint/different/menu)
+    // Interactive mode takes precedence (solution analysis or commands)
     if (user.context?.interactiveMode && user.context?.currentQuestion) {
       let response;
       if (
@@ -104,7 +102,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 2) Painpoint confirmation gate (before generating first question)
+    // Painpoint confirmation gate
     if (user.context?.painpointConfirm?.awaiting) {
       const response = await handlePainpointConfirmation(user, message);
 
@@ -129,12 +127,32 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 3) First-time image intelligence
+    // First-time image intelligence
     if (
       imageInfo &&
       (imageInfo.type === "direct" || imageInfo.type === "url")
     ) {
-      const response = await handleImageIntelligence(user, imageInfo);
+      // NEW: If URL, download to base64 for OCR reliability
+      let normalizedImageData = imageInfo.data;
+      if (imageInfo.type === "url") {
+        try {
+          normalizedImageData = await downloadImageAsBase64(imageInfo.data);
+        } catch (e) {
+          console.error("Image URL download failed:", e.message);
+          const response =
+            "📸 I couldn't fetch the image from the link. Please resend a clearer photo.";
+          return manyCompatRes.json({
+            message: response,
+            status: "error",
+            echo: response,
+          });
+        }
+      }
+
+      const response = await handleImageIntelligence(user, {
+        type: "direct",
+        data: normalizedImageData,
+      });
 
       user.conversation_history = user.conversation_history || [];
       user.conversation_history.push({
@@ -158,7 +176,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 4) Otherwise, prompt for image
+    // Otherwise, prompt for image
     const response = generateImageUploadPrompt(user);
     user.conversation_history = user.conversation_history || [];
     user.conversation_history.push({
@@ -185,6 +203,7 @@ module.exports = async (req, res) => {
     });
   }
 };
+
 
 // Handle image intelligence → concise report → ask for painpoint confirmation
 async function handleImageIntelligence(user, imageInfo) {
