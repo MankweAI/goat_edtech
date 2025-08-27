@@ -1,165 +1,148 @@
-// api/exam-prep.js (Major modifications for image handling)
-const stateModule = require("../lib/core/state");
-const userStates = stateModule.userStates;
-const trackManyState = stateModule.trackManyState;
-const {
-  persistUserState,
-  retrieveUserState,
-  getOrCreateUserState,
-  trackAnalytics,
-  AI_INTEL_STATES,
-} = stateModule;
-const { ManyCompatResponse } = require("../lib/core/responses");
-const {
-  startAIIntelligenceGathering,
-  processUserResponse,
-} = require("../lib/features/exam-prep/intelligence");
-const { extractImageData } = require("../lib/core/commands");
-const {
-  ExamPrepImageIntelligence,
-} = require("../lib/features/exam-prep/image-intelligence");
-const {
-  PsychologicalReportGenerator,
-} = require("../lib/features/exam-prep/psychological-report");
-const {
-  FoundationGapDetector,
-} = require("../lib/features/exam-prep/foundation-mapper");
-const analyticsModule = require("../lib/utils/analytics");
-
-// Initialize components
-const imageIntelligence = new ExamPrepImageIntelligence();
-const psychReportGenerator = new PsychologicalReportGenerator();
-const foundationDetector = new FoundationGapDetector();
-
-// api/index.js (FIXED VERSION)
+// api/index.js (COMPLETE WEBHOOK ROUTER)
 /**
- * Default API Entry Point
+ * Main Webhook Entry Point - All ManyChat Traffic
  * GOAT Bot 2.0
- * Updated: 2025-08-27 12:05:00 UTC
+ * Updated: 2025-08-27 10:30:00 UTC
  * Developer: DithetoMokgabudi
- * Fix: Added ManyChat-required echo field
+ * Fix: Single webhook entry point that routes to all features
  */
 
+const { ManyCompatResponse } = require("../lib/core/responses");
+const { parseGoatCommand, extractImageData } = require("../lib/core/commands");
+const { getOrCreateUserState, trackManyState } = require("../lib/core/state");
+const { detectDeviceType } = require("../lib/utils/device-detection");
+
 module.exports = async (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  
-  const response = {
-    status: "OK",
-    message: "GOAT Bot 2.0 API is running",
-    echo: "GOAT Bot 2.0 API is running", // ManyChat requires this field
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      health: "/api/health",
-      monitor: "/api/monitor", 
-      exam_prep: "/api/exam-prep",
-      homework: "/api/homework",
-      memory_hacks: "/api/memory-hacks"
-    },
-    version: "2.0.0"
-  };
-
-  res.status(200).json(response);
-};
-// NEW: Handle image intelligence processing
-async function handleImageIntelligence(user, imageInfo) {
   try {
-    const imageData = imageInfo.data;
+    const manyCompatRes = new ManyCompatResponse(res);
+    const subscriberId =
+      req.body.psid || req.body.subscriber_id || "default_user";
+    const message = req.body.message || req.body.user_input || "";
+    const userAgent = req.headers["user-agent"] || "";
 
-    // Extract complete intelligence from image
-    const result = await imageIntelligence.extractIntelligenceFromImage(
-      imageData,
-      user.id
-    );
+    console.log(`🔄 Webhook entry: ${subscriberId} -> "${message}"`);
 
-    if (!result.success) {
-      return generateImageProcessingError(result.error);
+    // Get user state to determine routing
+    let user = await getOrCreateUserState(subscriberId);
+    if (!user.preferences.device_type) {
+      user.preferences.device_type = detectDeviceType(userAgent);
     }
 
-    const intelligence = result.intelligence;
+    // Extract image data for routing decisions
+    const imageInfo = extractImageData(req);
 
-    // Build complete profile immediately
-    user.context.painpoint_profile = {
-      assessment_type: "test", // Default assumption
-      grade: intelligence.grade,
-      subject: intelligence.subject,
-      topic_struggles: intelligence.topic,
-      specific_failure: intelligence.struggle,
-    };
+    // Parse command with context
+    const command = parseGoatCommand(message, user, { imageInfo });
 
-    // Store intelligence metadata
-    user.context.intelligence_metadata = {
-      confidence: {
-        grade: intelligence.gradeConfidence,
-        subject: intelligence.subjectConfidence,
-        topic: intelligence.topicConfidence,
-        struggle: intelligence.struggleConfidence,
-        overall: intelligence.overallConfidence,
-      },
-      foundationGaps: intelligence.foundationGaps,
-      relatedStruggles: intelligence.relatedStruggles,
-      userConfidence: intelligence.confidenceLevel,
-      extractedText: result.extractedText,
-      imageHash: result.imageHash,
-    };
+    console.log(`🎯 Routing command: ${command.type}`);
 
-    // Generate psychological report with intelligence analysis
-    const psychReport = psychReportGenerator.generateReport(intelligence, {
-      extractedText: result.extractedText,
-      confidence: result.confidence,
-    });
+    // ROUTE BASED ON COMMAND TYPE
+    if (command.type === "MENU_CHOICE") {
+      // Handle main menu selections: 1=exam, 2=homework, 3=memory
+      return await routeToFeature(command.choice, req, manyCompatRes, user);
+    }
 
-    // Detect foundation gaps
-    const foundationGaps = foundationDetector.detectFoundationGaps(
-      intelligence.topic,
-      intelligence.grade,
-      intelligence.struggle
-    );
+    if (
+      command.type === "HOMEWORK_UPLOAD" ||
+      command.type === "HOMEWORK_HELP" ||
+      user.current_menu === "homework_help"
+    ) {
+      // Route to homework feature
+      const {
+        ConsolidatedHomeworkHelp,
+      } = require("../lib/features/homework/processor");
+      const homeworkHelper = new ConsolidatedHomeworkHelp();
+      return await homeworkHelper.processHomeworkRequest(req, manyCompatRes);
+    }
 
-    // Store foundation gaps for later use
-    user.context.foundationGaps = foundationGaps;
+    if (
+      command.type === "EXAM_PREP_CONVERSATION" ||
+      user.current_menu === "exam_prep_conversation"
+    ) {
+      // Route to exam prep feature
+      const examPrepHandler = require("./exam-prep");
+      return await examPrepHandler(req, res._res || res);
+    }
 
-    // Set state for interactive solution mode
-    user.context.ai_intel_state = AI_INTEL_STATES.AI_PAINPOINT_CONFIRMATION;
-    user.context.painpoint_confirmed = false;
+    if (
+      command.type === "MEMORY_HACKS" ||
+      user.current_menu === "memory_hacks_active"
+    ) {
+      // Route to memory hacks feature
+      const memoryHacksHandler = require("./memory-hacks");
+      return await memoryHacksHandler(req, res._res || res);
+    }
 
-    // Track analytics
-    analyticsModule
-      .trackEvent(user.id, "image_intelligence_extracted", {
-        subject: intelligence.subject,
-        grade: intelligence.grade,
-        topic: intelligence.topic,
-        confidence: intelligence.overallConfidence,
-        foundationGapsDetected: foundationGaps.length,
-      })
-      .catch(console.error);
-
-    return psychReport;
+    // Default: Show main menu
+    return await showMainMenu(user, manyCompatRes);
   } catch (error) {
-    console.error("Image intelligence processing failed:", error);
-    return generateFallbackImageResponse();
+    console.error("Main webhook error:", error);
+    const manyCompatRes = new ManyCompatResponse(res);
+    return manyCompatRes.json({
+      message: "Sorry, I encountered an error. Please try again.",
+      status: "error",
+      echo: "Sorry, I encountered an error. Please try again.",
+    });
+  }
+};
+
+// Route to specific feature based on menu choice
+async function routeToFeature(choice, req, res, user) {
+  console.log(`🎯 Routing to feature: ${choice}`);
+
+  // Update user's current menu
+  user.current_menu =
+    choice === 1
+      ? "exam_prep_conversation"
+      : choice === 2
+      ? "homework_help"
+      : choice === 3
+      ? "memory_hacks_active"
+      : "welcome";
+
+  trackManyState(user.id, {
+    type: "menu_selection",
+    current_menu: user.current_menu,
+  });
+
+  if (choice === 1) {
+    // Exam/Test Help → Route to exam-prep.js
+    const examPrepHandler = require("./exam-prep");
+    return await examPrepHandler(req, res._res || res);
+  } else if (choice === 2) {
+    // Homework Help → Route to homework processor
+    const {
+      ConsolidatedHomeworkHelp,
+    } = require("../lib/features/homework/processor");
+    const homeworkHelper = new ConsolidatedHomeworkHelp();
+    return await homeworkHelper.processHomeworkRequest(req, res);
+  } else if (choice === 3) {
+    // Memory Hacks → Route to memory-hacks.js
+    const memoryHacksHandler = require("./memory-hacks");
+    return await memoryHacksHandler(req, res._res || res);
+  } else {
+    return await showMainMenu(user, res);
   }
 }
 
-function generateImageProcessingError(error) {
-  return `📸 **Image processing challenge**
+// Show main menu
+async function showMainMenu(user, res) {
+  user.current_menu = "welcome";
 
-I couldn't clearly read your problem. Please try:
-• Better lighting
-• Hold camera steady  
-• Fill the frame with the problem
-• Use clear, dark writing
+  const message = `**Welcome to The GOAT.** I'm here help you study with calm and clarity.
 
-📱 Upload a clearer image to continue.`;
+**What do you need right now?**
+
+1️⃣ 📅 Exam/Test Help
+2️⃣ 📚 Homework Help 🫶 ⚡  
+3️⃣ 🧮 Tips & Hacks
+
+Just pick a number! ✨`;
+
+  return res.json({
+    message,
+    status: "success",
+    echo: message,
+  });
 }
 
-function generateFallbackImageResponse() {
-  return `📸 **Let's try again**
-
-I can see you uploaded an image but couldn't extract the problem details.
-
-Please upload a clear photo of a specific problem you're struggling with, and I'll:
-✅ Identify the grade level and topic
-✅ Find your specific challenge
-✅ Create targeted practice questions  
-✅ Build up from foundations if needed`;
-}
