@@ -2,14 +2,21 @@
 /**
  * Main Webhook Entry Point - All ManyChat Traffic
  * GOAT Bot 2.0
- * Updated: 2025-08-27 10:50:00 UTC
+ * Updated: 2025-08-27 10:59:00 UTC
  * Developer: DithetoMokgabudi
- * Fix: Correct response object routing and return handling
+ * Fixes:
+ *  - Use GOAT_COMMANDS constants (case-correct) for routing comparisons
+ *  - Prioritise Exam/Test Help routing before Homework to support exam image-first flow
+ *  - Correct response object routing and return handling
  */
 
 const { ManyCompatResponse } = require("../lib/core/responses");
 const { parseGoatCommand, extractImageData } = require("../lib/core/commands");
-const { getOrCreateUserState, trackManyState } = require("../lib/core/state");
+const {
+  getOrCreateUserState,
+  trackManyState,
+  GOAT_COMMANDS,
+} = require("../lib/core/state");
 const { detectDeviceType } = require("../lib/utils/device-detection");
 
 module.exports = async (req, res) => {
@@ -36,9 +43,10 @@ module.exports = async (req, res) => {
 
     console.log(`🎯 Routing command: ${command.type}`);
 
-    // ROUTE BASED ON COMMAND TYPE
-    if (command.type === "MENU_CHOICE") {
-      // Handle main menu selections: 1=exam, 2=homework, 3=memory
+    // ROUTE BASED ON COMMAND TYPE (use GOAT_COMMANDS constants)
+
+    // 1) Menu selections (1/2/3)
+    if (command.type === GOAT_COMMANDS.MENU_CHOICE) {
       console.log(`🎯 Menu choice detected: ${command.choice}`);
       return await routeToFeature(
         command.choice,
@@ -49,12 +57,21 @@ module.exports = async (req, res) => {
       );
     }
 
+    // 2) Exam/Test Help should take priority (image-first flow)
     if (
-      command.type === "HOMEWORK_UPLOAD" ||
-      command.type === "HOMEWORK_HELP" ||
+      command.type === GOAT_COMMANDS.EXAM_PREP_CONVERSATION ||
+      user.current_menu === "exam_prep_conversation"
+    ) {
+      const examPrepHandler = require("./exam-prep");
+      return await examPrepHandler(req, res);
+    }
+
+    // 3) Homework Help (fallback when user is in homework flow or uploads image outside exam mode)
+    if (
+      command.type === GOAT_COMMANDS.HOMEWORK_UPLOAD ||
+      command.type === GOAT_COMMANDS.HOMEWORK_HELP ||
       user.current_menu === "homework_help"
     ) {
-      // Route to homework feature
       const {
         ConsolidatedHomeworkHelp,
       } = require("../lib/features/homework/processor");
@@ -62,20 +79,11 @@ module.exports = async (req, res) => {
       return await homeworkHelper.processHomeworkRequest(req, manyCompatRes);
     }
 
+    // 4) Memory Hacks
     if (
-      command.type === "EXAM_PREP_CONVERSATION" ||
-      user.current_menu === "exam_prep_conversation"
-    ) {
-      // Route to exam prep feature
-      const examPrepHandler = require("./exam-prep");
-      return await examPrepHandler(req, res);
-    }
-
-    if (
-      command.type === "MEMORY_HACKS" ||
+      command.type === GOAT_COMMANDS.MEMORY_HACKS ||
       user.current_menu === "memory_hacks_active"
     ) {
-      // Route to memory hacks feature
       const memoryHacksHandler = require("./memory-hacks");
       return await memoryHacksHandler(req, res);
     }
@@ -116,7 +124,7 @@ async function routeToFeature(choice, req, res, user, manyCompatRes) {
     // Exam/Test Help → Route to exam-prep.js
     console.log(`📅 Routing to exam-prep.js`);
     const examPrepHandler = require("./exam-prep");
-    return await examPrepHandler(req, res); // FIXED: Proper return
+    return await examPrepHandler(req, res); // Proper return
   } else if (choice === 2) {
     // Homework Help → Route to homework processor
     console.log(`📚 Routing to homework processor`);
@@ -124,12 +132,12 @@ async function routeToFeature(choice, req, res, user, manyCompatRes) {
       ConsolidatedHomeworkHelp,
     } = require("../lib/features/homework/processor");
     const homeworkHelper = new ConsolidatedHomeworkHelp();
-    return await homeworkHelper.processHomeworkRequest(req, manyCompatRes); // FIXED: Proper return
+    return await homeworkHelper.processHomeworkRequest(req, manyCompatRes); // Proper return
   } else if (choice === 3) {
     // Memory Hacks → Route to memory-hacks.js
     console.log(`🧮 Routing to memory-hacks.js`);
     const memoryHacksHandler = require("./memory-hacks");
-    return await memoryHacksHandler(req, res); // FIXED: Proper return
+    return await memoryHacksHandler(req, res); // Proper return
   } else {
     // Invalid choice, show main menu
     console.log(`❌ Invalid choice: ${choice}, showing main menu`);
